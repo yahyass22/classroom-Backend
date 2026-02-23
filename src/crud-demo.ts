@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { index } from './db';
-import { departements, subjects } from './db/shema/app';
+import { departements, subjects } from './db/schema/app';
 
 async function main() {
   try {
