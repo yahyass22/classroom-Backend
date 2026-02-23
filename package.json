@@ -1,0 +1,32 @@
+{
+  "name": "classroom-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "crud": "tsx src/crud-demo.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.3.1",
+    "drizzle-kit": "^0.31.9",
+    "drizzle-orm": "^0.45.1",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
