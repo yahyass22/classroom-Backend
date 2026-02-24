@@ -8,24 +8,32 @@ const router= express.Router();
 //get all subjects with optiinal search filtering and pagenation
 router.get('/', async (req , res  ) => {
     try {
-         const {search , department ,page=1, limit = 10} = req.query;
-         const currentpage = Math.max(1, +page);
-         const limitperpage  = Math.max(1, +limit);
+        const { search, department, page, limit } = req.query;
+        const toPositiveInt = (value: unknown, fallback: number) => {
+            const raw = Array.isArray(value) ? value[0] : value;
+            const parsed = Number.parseInt(String(raw ?? ''), 10);
+           return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+        };
+        const currentpage = toPositiveInt(page, 1);
+        const limitperpage = toPositiveInt(limit, 10);
          const offset = (currentpage - 1) * limitperpage;
          const filterconditions = [];
          //if search query exists search by subject name or subject code
-        if (search) {
+
+        const searchTerm = typeof search === 'string' ? search.trim() : undefined;
+        if (searchTerm) {
             filterconditions.push(
                 or(
-                    ilike(subjects.name , `%${search}%`),
-                    ilike(subjects.code, `%${search}%`)
+                    ilike(subjects.name , `%${searchTerm}%`),
+                    ilike(subjects.code, `%${searchTerm}%`)
 
                 )
             );
         }
         //if department filter exists match by name
-        if (department) {
-            filterconditions.push(ilike(departments.name, `%${department}%`));
+        const departmentTerm = typeof department === 'string' ? department.trim() : undefined;
+         if (departmentTerm) {
+             filterconditions.push(ilike(departments.name, `%${departmentTerm}%`));
         }
 
         //combining all filters
@@ -55,7 +63,7 @@ router.get('/', async (req , res  ) => {
     } catch (e) {
         console.error(`GET /subjects error: ${e}`);
         console.error(`GET /subjects error stack: ${e instanceof Error ? e.stack : 'N/A'}`);
-        res.status(500).json({error:'Failed to get subjects', details: e instanceof Error ? e.message : String(e)});
+        res.status(500).json({ error: 'Failed to get subjects' });
 
     }
 })
