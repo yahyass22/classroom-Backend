@@ -1,6 +1,6 @@
 CREATE TABLE "teachers" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "teachers_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
-	"departementID" integer NOT NULL,
+	"department_id" integer NOT NULL,
 	"employee_id" varchar(50) NOT NULL,
 	"first_name" varchar(100) NOT NULL,
 	"last_name" varchar(100) NOT NULL,
@@ -13,4 +13,4 @@ CREATE TABLE "teachers" (
 	CONSTRAINT "teachers_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-ALTER TABLE "teachers" ADD CONSTRAINT "teachers_departementID_departements_id_fk" FOREIGN KEY ("departementID") REFERENCES "public"."departements"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "teachers" ADD CONSTRAINT "teachers_department_id_departments_id_fk" FOREIGN KEY ("department_id") REFERENCES "public"."departments"("id") ON DELETE restrict ON UPDATE no action;
