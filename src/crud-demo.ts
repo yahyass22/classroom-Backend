@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
-import { index } from './db';
-import { departements, subjects } from './db/schema/app';
+import { db } from './db';
+import { departments, subjects } from './db/schema/app';
 
 async function main() {
   try {
     console.log('Performing CRUD operations...');
 
     // CREATE: Insert a new department
-    const [newDept] = await index
-      .insert(departements)
+    const [newDept] = await db
+      .insert(departments)
       .values({ 
         code: 'CS', 
         name: 'Computer Science', 
@@ -23,14 +23,14 @@ async function main() {
     console.log('✅ CREATE: New department created:', newDept);
 
     // READ: Select the department
-    const foundDept = await index.select().from(departements).where(eq(departements.id, newDept.id));
+    const foundDept = await db.select().from(departments).where(eq(departments.id, newDept.id));
     console.log('✅ READ: Found department:', foundDept[0]);
 
     // UPDATE: Change the department name
-    const [updatedDept] = await index
-      .update(departements)
+    const [updatedDept] = await db
+      .update(departments)
       .set({ name: 'Computer Science & Engineering' })
-      .where(eq(departements.id, newDept.id))
+      .where(eq(departments.id, newDept.id))
       .returning();
     
     if (!updatedDept) {
@@ -40,10 +40,10 @@ async function main() {
     console.log('✅ UPDATE: Department updated:', updatedDept);
 
     // CREATE: Insert a subject linked to the department
-    const [newSubject] = await index
+    const [newSubject] = await db
       .insert(subjects)
       .values({
-        departementId: newDept.id,
+        departmentId: newDept.id,
         code: 'CS101',
         name: 'Introduction to Programming',
         description: 'Learn the basics of programming'
@@ -57,15 +57,15 @@ async function main() {
     console.log('✅ CREATE: New subject created:', newSubject);
 
     // READ: Select subjects with their department
-    const foundSubjects = await index.select().from(subjects).where(eq(subjects.id, newSubject.id));
+    const foundSubjects = await db.select().from(subjects).where(eq(subjects.id, newSubject.id));
     console.log('✅ READ: Found subject:', foundSubjects[0]);
 
     // DELETE: Remove the subject first (due to foreign key constraint)
-    await index.delete(subjects).where(eq(subjects.id, newSubject.id));
+    await db.delete(subjects).where(eq(subjects.id, newSubject.id));
     console.log('✅ DELETE: Subject deleted.');
 
     // DELETE: Remove the department
-    await index.delete(departements).where(eq(departements.id, newDept.id));
+    await db.delete(departments).where(eq(departments.id, newDept.id));
     console.log('✅ DELETE: Department deleted.');
 
     console.log('\nCRUD operations completed successfully.');
