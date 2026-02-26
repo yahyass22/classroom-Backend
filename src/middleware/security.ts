@@ -47,14 +47,13 @@ const securityMiddleware = async (req: Request, res: Response, next: NextFunctio
             return res.status(403).json({error: 'Unauthorized', message:'Request blocked by security Policy'});
         }
         if (decision.isDenied()&& decision.reason.isRateLimit()) {
-            return res.status(403).json({error: 'Too many requests', message});
+            return res.status(429).json({error: 'Too many requests', message});
         }
         next();
 
     } catch (e) {
         console.error("Arcjet security middleware error:", e);
-        res.status(500).json({erroe:'Internal error',message:'Something went wrong with security middleware'});
-
+        return res.status(500).json({error:'Internal error',message:'Something went wrong with security middleware'});
     }
 };
 export default securityMiddleware;

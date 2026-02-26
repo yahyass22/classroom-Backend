@@ -24,8 +24,8 @@ export const aj = arcjet({
         // Create a sliding window rate limit.
         slidingWindow({
             mode: "LIVE",
-            interval: '2s', // 10 seconds
-            max: 5, // 10 requests per interval
+            interval: '2s',
+            max: 5,
         }),
     ],
 });
