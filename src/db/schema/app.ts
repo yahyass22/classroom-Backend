@@ -1,5 +1,12 @@
-import { bigint, index, integer, pgTable, primaryKey, timestamp, varchar } from "drizzle-orm/pg-core";
+import { bigint, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { user } from "./auth";
+
+export interface Schedule {
+    day: string;
+    startTime: string;
+    endTime: string;
+}
 
 const timestamps = {
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -55,6 +62,36 @@ export const teacherSubjects = pgTable("teacher_subjects", {
     idx_teacher_subjects_subject: index('idx_teacher_subjects_subject').on(table.subjectId),
 }));
 
+export const classStatusEnum = pgEnum("class_status", ["active", "inactive", "archived"]);
+
+export const classes = pgTable("classes", {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    subjectId: integer('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+    teacherId: text('teacher_id').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    inviteCode: varchar('invite_code', { length: 50 }).notNull().unique(),
+    name: varchar('name', { length: 255 }).notNull(),
+    bannerCldPubId: text('banner_cld_pub_id'),
+    bannerUrl: text('banner_url'),
+    description: text('description'),
+    capacity: integer('capacity').notNull().default(50),
+    status: classStatusEnum("status").notNull().default("active"),
+    schedules: jsonb('schedules').$type<Schedule[]>(),
+    ...timestamps
+}, (table) => ({
+    idx_classes_subject: index('idx_classes_subject').on(table.subjectId),
+    idx_classes_teacher: index('idx_classes_teacher').on(table.teacherId),
+}));
+
+export const enrollments = pgTable("enrollments", {
+    studentId: text('student_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    classId: integer('class_id').notNull().references(() => classes.id, { onDelete: 'cascade' }),
+    ...timestamps
+}, (table) => ({
+    pk: primaryKey(table.studentId, table.classId),
+    idx_enrollments_student: index('idx_enrollments_student').on(table.studentId),
+    idx_enrollments_class: index('idx_enrollments_class').on(table.classId),
+}));
+
 export const departmentsRelations = relations(departments, ({ many }) => ({
     subjects: many(subjects),
     teachers: many(teachers),
@@ -66,6 +103,7 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
         references: [departments.id],
     }),
     teacherSubjects: many(teacherSubjects),
+    classes: many(classes),
 }));
 
 export const teachersRelations = relations(teachers, ({ one, many }) => ({
@@ -87,6 +125,29 @@ export const teacherSubjectsRelations = relations(teacherSubjects, ({ one }) => 
     }),
 }));
 
+export const classesRelations = relations(classes, ({ one, many }) => ({
+    subject: one(subjects, {
+        fields: [classes.subjectId],
+        references: [subjects.id],
+    }),
+    teacher: one(user, {
+        fields: [classes.teacherId],
+        references: [user.id],
+    }),
+    enrollments: many(enrollments),
+}));
+
+export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
+    student: one(user, {
+        fields: [enrollments.studentId],
+        references: [user.id],
+    }),
+    class: one(classes, {
+        fields: [enrollments.classId],
+        references: [classes.id],
+    }),
+}));
+
 export type Department = typeof departments.$inferSelect;
 export type NewDepartment = typeof departments.$inferInsert;
 
@@ -98,3 +159,9 @@ export type NewTeacher = typeof teachers.$inferInsert;
 
 export type TeacherSubject = typeof teacherSubjects.$inferSelect;
 export type NewTeacherSubject = typeof teacherSubjects.$inferInsert;
+
+export type Class = typeof classes.$inferSelect;
+export type NewClass = typeof classes.$inferInsert;
+
+export type Enrollment = typeof enrollments.$inferSelect;
+export type NewEnrollment = typeof enrollments.$inferInsert;
