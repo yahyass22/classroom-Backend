@@ -8,6 +8,8 @@ const router= express.Router();
 //get all subjects with optiinal search filtering and pagenation
 router.get('/', async (req , res  ) => {
     try {
+        console.log('[GET /api/subjects] Full query:', req.query);
+        console.log('[GET /api/subjects] Full URL:', req.url);
         const { search, department, page, limit } = req.query;
         const toPositiveInt = (value: unknown, fallback: number) => {
             const raw = Array.isArray(value) ? value[0] : value;
@@ -43,7 +45,7 @@ router.get('/', async (req , res  ) => {
             .from(subjects)
             .leftJoin(departments, eq(subjects.departmentId, departments.id))
             .where(whereClause);
-        const totalCount= countResult[0]?.count ?? 0;
+        const totalCount = Number(countResult[0]?.count ?? 0);
         const subjectsList= await db.select({...getTableColumns(subjects), department:{...getTableColumns(departments)}
         }).from(subjects).leftJoin(departments, eq(subjects.departmentId, departments.id))
             .where(whereClause).orderBy(desc(subjects.createdAt))
