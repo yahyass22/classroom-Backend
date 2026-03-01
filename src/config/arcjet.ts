@@ -2,16 +2,20 @@ import arcjet , {shield,detectBot,slidingWindow} from "@arcjet/node";
 if(!process.env.ARCJET_KEY && process.env.NODE_ENV != 'test' ) {
     throw new Error('ARCJET_KEY is required');
 }
+
+// Determine mode based on environment - DRY_RUN logs but doesn't block in development
+const mode = process.env.ARCJET_ENV === 'development' ? 'DRY_RUN' : 'LIVE';
+
 export const aj = arcjet({
     // Get your site key from https://app.arcjet.com and set it as an environment
     // variable rather than hard coding.
     key: process.env.ARCJET_KEY!,
     rules: [
         // Shield protects your app from common attacks e.g. SQL injection
-        shield({ mode: "LIVE" }),
+        shield({ mode }),
         // Create a bot detection rule
         detectBot({
-            mode: "LIVE", // Blocks requests. Use "DRY_RUN" to log only
+            mode, // Blocks requests. Use "DRY_RUN" to log only
             // Block all bots except the following
             allow: [
                 "CATEGORY:SEARCH_ENGINE", // Google, Bing, etc
@@ -23,7 +27,7 @@ export const aj = arcjet({
         }),
         // Create a sliding window rate limit.
         slidingWindow({
-            mode: "LIVE",
+            mode,
             interval: '2s',
             max: 5,
         }),

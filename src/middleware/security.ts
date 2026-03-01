@@ -3,7 +3,10 @@ import { Request, Response, NextFunction } from "express";
 import {ArcjetNodeRequest, slidingWindow} from "@arcjet/node";
 
 const securityMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-    if(process.env.NODE_ENV === 'test') return next();
+    // Skip rate limiting in development and test environments
+    if(process.env.NODE_ENV === 'test' || process.env.ARCJET_ENV === 'development') {
+        return next();
+    }
 
     try {
         const role: RateLimitRole = req.user?.role ?? 'guest';
