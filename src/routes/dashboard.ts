@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { classes, enrollments, subjects, teachers, departments, user } from "../db/schema/app.js";
+import { classes, enrollments, subjects, teachers, departments } from "../db/schema/app.js";
+import { user } from "../db/schema/auth.js";
 import { eq, sql, desc } from "drizzle-orm";
 
 const router = Router();
