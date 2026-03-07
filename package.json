@@ -11,6 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/seed.ts",
+    "db:seed:full": "tsx src/seed-full.ts",
+    "db:seed:mega": "tsx src/seed-mega.ts",
     "crud": "tsx src/crud-demo.ts"
   },
   "keywords": [],

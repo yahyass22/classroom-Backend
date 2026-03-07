@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { classes, enrollments, subjects, teachers, departments } from "../db/schema/app.js";
+import { classes, enrollments, subjects, teachers, departments, teacherSubjects } from "../db/schema/app.js";
 import { user } from "../db/schema/auth.js";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 
 const router = Router();
 
@@ -14,30 +14,13 @@ router.get("/stats", async (_req, res) => {
       totalClassesResult,
       totalTeachersResult,
       totalSubjectsResult,
-      totalRevenueResult,
+      totalEnrollmentsResult,
     ] = await Promise.all([
-      // Total students (users with role 'student')
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(user)
-        .where(eq(user.role, "student")),
-      
-      // Total active classes
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(classes)
-        .where(eq(classes.status, "active")),
-      
-      // Total teachers
+      db.select({ count: sql<number>`count(*)` }).from(user).where(eq(user.role, "student")),
+      db.select({ count: sql<number>`count(*)` }).from(classes).where(eq(classes.status, "active")),
       db.select({ count: sql<number>`count(*)` }).from(teachers),
-      
-      // Total subjects
       db.select({ count: sql<number>`count(*)` }).from(subjects),
-      
-      // Total revenue (sum of enrollment fees - placeholder calculation)
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(enrollments),
+      db.select({ count: sql<number>`count(*)` }).from(enrollments),
     ]);
 
     const stats = {
@@ -45,23 +28,18 @@ router.get("/stats", async (_req, res) => {
       totalClasses: Number(totalClassesResult[0]?.count ?? 0),
       totalTeachers: Number(totalTeachersResult[0]?.count ?? 0),
       totalSubjects: Number(totalSubjectsResult[0]?.count ?? 0),
-      totalEnrollments: Number(totalRevenueResult[0]?.count ?? 0),
+      totalEnrollments: Number(totalEnrollmentsResult[0]?.count ?? 0),
     };
 
     res.json(stats);
   } catch (error) {
-    console.error("Error fetching dashboard stats:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch statistics",
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 
 // Get enrollment trends (monthly)
 router.get("/enrollment-trends", async (_req, res) => {
   try {
-    console.log("Fetching enrollment trends...");
     const trends = await db
       .select({
         month: sql<string>`to_char(${enrollments.createdAt}, 'YYYY-MM')`,
@@ -69,10 +47,7 @@ router.get("/enrollment-trends", async (_req, res) => {
       })
       .from(enrollments)
       .groupBy(sql`to_char(${enrollments.createdAt}, 'YYYY-MM')`)
-      .orderBy(sql`to_char(${enrollments.createdAt}, 'YYYY-MM')`)
-      .limit(12);
-
-    console.log("Enrollment trends result:", trends);
+      .orderBy(sql`to_char(${enrollments.createdAt}, 'YYYY-MM')`);
 
     const enrollmentTrends = trends.map((t) => ({
       month: t.month,
@@ -81,15 +56,11 @@ router.get("/enrollment-trends", async (_req, res) => {
 
     res.json(enrollmentTrends);
   } catch (error) {
-    console.error("Error fetching enrollment trends:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch enrollment trends",
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
+    res.status(500).json({ error: "Failed to fetch enrollment trends" });
   }
 });
 
-// Get recent classes with enrollment count
+// Get recent classes
 router.get("/recent-classes", async (_req, res) => {
   try {
     const recentClasses = await db
@@ -132,123 +103,233 @@ router.get("/recent-classes", async (_req, res) => {
 
     res.json(formattedClasses);
   } catch (error) {
-    console.error("Error fetching recent classes:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch recent classes",
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
+    res.status(500).json({ error: "Failed to fetch recent classes" });
   }
 });
 
-// Get department-wise statistics
-router.get("/department-stats", async (_req, res) => {
+// Get enrollment by department
+router.get("/enrollment-by-department", async (_req, res) => {
   try {
-    const deptStats = await db
+    const enrollmentData = await db
       .select({
         departmentName: departments.name,
-        departmentCode: departments.code,
-        teacherCount: sql<number>`count(distinct ${teachers.id})`,
-        subjectCount: sql<number>`count(distinct ${subjects.id})`,
-        classCount: sql<number>`count(distinct ${classes.id})`,
-      })
-      .from(departments)
-      .leftJoin(teachers, eq(departments.id, teachers.departmentId))
-      .leftJoin(subjects, eq(departments.id, subjects.departmentId))
-      .leftJoin(classes, eq(subjects.id, classes.subjectId))
-      .groupBy(departments.id, departments.name, departments.code);
-
-    const formattedStats = deptStats.map((d) => ({
-      name: d.departmentName,
-      code: d.departmentCode,
-      teacherCount: Number(d.teacherCount),
-      subjectCount: Number(d.subjectCount),
-      classCount: Number(d.classCount),
-    }));
-
-    res.json(formattedStats);
-  } catch (error) {
-    console.error("Error fetching department stats:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch department statistics",
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
-  }
-});
-
-// Get student performance by class (for student performance table)
-router.get("/student-performance", async (req, res) => {
-  try {
-    const { page = "1", limit = "10", department } = req.query;
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
-    const offset = (pageNum - 1) * limitNum;
-
-    let query = db
-      .select({
-        studentId: user.id,
-        studentName: user.name,
-        studentEmail: user.email,
-        className: classes.name,
-        subjectName: subjects.name,
-        subjectCode: subjects.code,
-        departmentName: departments.name,
-        enrolledAt: enrollments.createdAt,
+        month: sql<string>`to_char(${enrollments.createdAt}, 'YYYY-MM')`,
+        count: sql<number>`count(*)`,
       })
       .from(enrollments)
-      .leftJoin(user, eq(enrollments.studentId, user.id))
       .leftJoin(classes, eq(enrollments.classId, classes.id))
       .leftJoin(subjects, eq(classes.subjectId, subjects.id))
       .leftJoin(departments, eq(subjects.departmentId, departments.id))
-      .where(eq(user.role, "student"));
+      .groupBy(departments.name, sql`to_char(${enrollments.createdAt}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${enrollments.createdAt}, 'YYYY-MM')`);
 
-    if (department) {
-      query = query.where(eq(departments.name, department as string));
-    }
-
-    const [results, totalCountResult] = await Promise.all([
-      query.limit(limitNum).offset(offset),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(enrollments)
-        .leftJoin(user, eq(enrollments.studentId, user.id))
-        .leftJoin(classes, eq(enrollments.classId, classes.id))
-        .leftJoin(subjects, eq(classes.subjectId, subjects.id))
-        .leftJoin(departments, eq(subjects.departmentId, departments.id))
-        .where(eq(user.role, "student")),
-    ]);
-
-    const totalCount = Number(totalCountResult[0]?.count ?? 0);
-
-    const formattedResults = results.map((r) => ({
-      studentId: r.studentId,
-      studentName: r.studentName ?? "N/A",
-      studentEmail: r.studentEmail ?? "N/A",
-      class: {
-        name: r.className ?? "N/A",
-      },
-      subject: {
-        name: r.subjectName ?? "N/A",
-        code: r.subjectCode ?? "N/A",
-      },
-      department: r.departmentName ?? "N/A",
-      enrolledAt: r.enrolledAt,
+    const formattedData = enrollmentData.map((d) => ({
+      department: d.departmentName ?? "Unknown",
+      month: d.month,
+      count: Number(d.count),
     }));
 
-    res.json({
-      data: formattedResults,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / limitNum),
-      },
-    });
+    res.json(formattedData);
   } catch (error) {
-    console.error("Error fetching student performance:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch student performance",
-      message: error instanceof Error ? error.message : "Unknown error"
+    res.status(500).json({ error: "Failed to fetch enrollment by department" });
+  }
+});
+
+// Get student department distribution
+router.get("/student-department-distribution", async (_req, res) => {
+  try {
+    const studentData = await db
+      .select({
+        departmentName: departments.name,
+        departmentCode: departments.code,
+        studentCount: sql<number>`count(distinct ${enrollments.studentId})`,
+      })
+      .from(departments)
+      .leftJoin(subjects, eq(departments.id, subjects.departmentId))
+      .leftJoin(classes, eq(subjects.id, classes.subjectId))
+      .leftJoin(enrollments, eq(classes.id, enrollments.classId))
+      .groupBy(departments.id, departments.name, departments.code)
+      .having(sql`count(distinct ${enrollments.studentId}) > 0`)
+      .orderBy(desc(sql`count(distinct ${enrollments.studentId})`));
+
+    const formattedData = studentData.map((d) => ({
+      name: d.departmentName,
+      code: d.departmentCode,
+      studentCount: Number(d.studentCount),
+    }));
+
+    res.json(formattedData);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch student distribution" });
+  }
+});
+
+// Get class status distribution
+router.get("/class-status-distribution", async (_req, res) => {
+  try {
+    const statusData = await db
+      .select({
+        status: classes.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(classes)
+      .groupBy(classes.status);
+
+    const formattedData = statusData.map((d) => ({
+      status: d.status,
+      count: Number(d.count),
+    }));
+
+    res.json(formattedData);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch class status distribution" });
+  }
+});
+
+// Get at-risk resources
+router.get("/at-risk", async (_req, res) => {
+  try {
+    const [orphanedClasses, unassignedTeachers] = await Promise.all([
+      db
+        .select({
+          id: classes.id,
+          name: classes.name,
+          inviteCode: classes.inviteCode,
+          type: sql<string>`'class'`,
+          reason: sql<string>`'Active with 0 enrollments'`,
+        })
+        .from(classes)
+        .leftJoin(enrollments, eq(classes.id, enrollments.classId))
+        .where(eq(classes.status, "active"))
+        .groupBy(classes.id)
+        .having(sql`count(${enrollments.studentId}) = 0`),
+
+      db
+        .select({
+          id: teachers.id,
+          name: sql<string>`${teachers.firstName} || ' ' || ${teachers.lastName}`,
+          inviteCode: teachers.employeeId,
+          type: sql<string>`'teacher'`,
+          reason: sql<string>`'No subjects assigned'`,
+        })
+        .from(teachers)
+        .leftJoin(teacherSubjects, eq(teachers.id, teacherSubjects.teacherId))
+        .groupBy(teachers.id, teachers.firstName, teachers.lastName, teachers.employeeId)
+        .having(sql`count(${teacherSubjects.subjectId}) = 0`),
+    ]);
+
+    res.json([...orphanedClasses, ...unassignedTeachers]);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch at-risk resources" });
+  }
+});
+
+// Schedule heatmap
+router.get("/schedule-heatmap", async (_req, res) => {
+  try {
+    const activeClasses = await db
+      .select({
+        schedules: classes.schedules,
+        className: classes.name,
+        subjectCode: subjects.code
+      })
+      .from(classes)
+      .leftJoin(subjects, eq(classes.subjectId, subjects.id))
+      .where(eq(classes.status, "active"));
+
+    const heatmapData: any[] = [];
+    const slotMap = new Map<string, { count: number; subjects: string[]; classes: string[] }>();
+
+    activeClasses.forEach((cls) => {
+      if (cls.schedules && Array.isArray(cls.schedules)) {
+        cls.schedules.forEach((sched: any) => {
+          const key = `${sched.day}-${parseInt(sched.startTime.split(":")[0])}`;
+          const existing = slotMap.get(key) || { count: 0, subjects: [], classes: [] };
+          slotMap.set(key, {
+            count: existing.count + 1,
+            subjects: [...new Set([...existing.subjects, cls.subjectCode ?? ""])],
+            classes: [...new Set([...existing.classes, cls.className ?? ""])]
+          });
+        });
+      }
     });
+
+    slotMap.forEach((val, key) => {
+      const [day, hour] = key.split("-");
+      heatmapData.push({ 
+        day, 
+        hour: parseInt(hour), 
+        count: val.count, 
+        subjects: val.subjects.filter((s): s is string => !!s),
+        classes: val.classes.filter((c): c is string => !!c)
+      });
+    });
+
+    res.json(heatmapData);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch schedule heatmap" });
+  }
+});
+
+// Top teachers
+router.get("/top-teachers", async (_req, res) => {
+  try {
+    const teacherData = await db
+      .select({
+        teacherId: teachers.id,
+        teacherName: sql<string>`${teachers.firstName} || ' ' || ${teachers.lastName}`,
+        teacherEmail: teachers.email,
+        departmentName: departments.name,
+        classCount: sql<number>`count(distinct ${classes.id})`,
+        studentCount: sql<number>`count(distinct ${enrollments.studentId})`,
+      })
+      .from(teachers)
+      .leftJoin(departments, eq(teachers.departmentId, departments.id))
+      .leftJoin(user, eq(teachers.email, user.email))
+      .leftJoin(classes, eq(user.id, classes.teacherId))
+      .leftJoin(enrollments, eq(classes.id, enrollments.classId))
+      .groupBy(teachers.id, departments.name)
+      .orderBy(desc(sql`count(distinct ${classes.id})`))
+      .limit(10);
+
+    const formattedData = teacherData.map((d) => ({
+      id: d.teacherId,
+      name: d.teacherName,
+      email: d.teacherEmail,
+      department: d.departmentName ?? "Unknown",
+      classCount: Number(d.classCount),
+      studentCount: Number(d.studentCount),
+    }));
+
+    res.json(formattedData);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch top teachers" });
+  }
+});
+
+// User signup trends
+router.get("/user-signup-trends", async (_req, res) => {
+  try {
+    const trends = await db
+      .select({
+        month: sql<string>`to_char(${user.createdAt}, 'YYYY-MM')`,
+        studentCount: sql<number>`count(*) filter (where ${user.role} = 'student')`,
+        teacherCount: sql<number>`count(*) filter (where ${user.role} = 'teacher')`,
+      })
+      .from(user)
+      .groupBy(sql`to_char(${user.createdAt}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${user.createdAt}, 'YYYY-MM')`);
+
+    const formattedData = trends.map((t) => ({
+      month: t.month,
+      students: Number(t.studentCount),
+      teachers: Number(t.teacherCount),
+      total: Number(t.studentCount) + Number(t.teacherCount),
+    }));
+
+    res.json(formattedData);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch user signup trends" });
   }
 });
 
