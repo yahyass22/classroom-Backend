@@ -256,10 +256,10 @@ router.get("/schedule-heatmap", async (_req, res) => {
 
     slotMap.forEach((val, key) => {
       const [day, hour] = key.split("-");
-      heatmapData.push({ 
-        day, 
-        hour: parseInt(hour), 
-        count: val.count, 
+      heatmapData.push({
+        day,
+        hour: parseInt(hour || "0"),
+        count: val.count,
         subjects: val.subjects.filter((s): s is string => !!s),
         classes: val.classes.filter((c): c is string => !!c)
       });
