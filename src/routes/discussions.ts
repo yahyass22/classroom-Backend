@@ -7,6 +7,7 @@ import {
 } from "../db/schema/discussions.js";
 import { classes } from "../db/schema/app.js";
 import { user } from "../db/schema/auth.js";
+import { requireFreshAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -102,7 +103,6 @@ async function getDiscussionWithDetails(discussionId: number) {
             author: {
                 id: user.id,
                 name: user.name,
-                email: user.email,
                 role: user.role,
                 image: user.image,
             },
@@ -269,17 +269,18 @@ router.get("/classes/:classId/discussions", async (req, res) => {
 // Get single discussion details with replies
 router.get("/classes/:classId/discussions/:id", async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id, classId } = req.params;
         const discussionId = parseInt(id);
+        const classIdNum = parseInt(classId);
 
-        if (!Number.isFinite(discussionId)) {
-            return res.status(400).json({ error: 'Invalid discussion ID' });
+        if (!Number.isFinite(discussionId) || !Number.isFinite(classIdNum)) {
+            return res.status(400).json({ error: 'Invalid discussion or class ID' });
         }
 
         const discussion = await getDiscussionWithDetails(discussionId);
 
-        if (!discussion) {
-            return res.status(404).json({ error: 'Discussion not found' });
+        if (!discussion || discussion.classId !== classIdNum) {
+            return res.status(404).json({ error: 'Discussion not found in this class' });
         }
 
         // Get all replies with author info (flat list, will organize on frontend)
@@ -406,8 +407,9 @@ router.post("/classes/:classId/discussions", async (req, res) => {
 // Update discussion
 router.put("/classes/:classId/discussions/:id", async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id, classId } = req.params;
         const discussionId = parseInt(id);
+        const classIdNum = parseInt(classId);
         const { title, content, type } = req.body;
         const authUser = getAuthUser(req);
         const userId = authUser?.id;
@@ -416,14 +418,18 @@ router.put("/classes/:classId/discussions/:id", async (req, res) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
+        if (!Number.isFinite(discussionId) || !Number.isFinite(classIdNum)) {
+            return res.status(400).json({ error: 'Invalid discussion or class ID' });
+        }
+
         // Get existing discussion
         const [existing] = await db
-            .select({ authorId: discussions.authorId })
+            .select({ authorId: discussions.authorId, classId: discussions.classId })
             .from(discussions)
             .where(eq(discussions.id, discussionId));
 
-        if (!existing) {
-            return res.status(404).json({ error: 'Discussion not found' });
+        if (!existing || existing.classId !== classIdNum) {
+            return res.status(404).json({ error: 'Discussion not found in this class' });
         }
 
         // Only author can edit
@@ -450,9 +456,16 @@ router.put("/classes/:classId/discussions/:id", async (req, res) => {
 });
 
 // Delete discussion
-router.delete("/classes/:classId/discussions/:id", async (req, res) => {
+router.delete("/classes/:classId/discussions/:id", requireFreshAuth, async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id, classId } = req.params;
+        if (typeof id !== 'string' || typeof classId !== 'string') {
+            return res.status(400).json({ error: 'Invalid discussion or class ID' });
+        }
+        const classIdNum = parseInt(classId);
+        if (!Number.isFinite(classIdNum)) {
+            return res.status(400).json({ error: 'Invalid class ID' });
+        }
         const discussionId = parseInt(id);
         const authUser = getAuthUser(req);
         const userId = authUser?.id;
@@ -464,12 +477,12 @@ router.delete("/classes/:classId/discussions/:id", async (req, res) => {
 
         // Get existing discussion
         const [existing] = await db
-            .select({ authorId: discussions.authorId })
+            .select({ authorId: discussions.authorId, classId: discussions.classId })
             .from(discussions)
             .where(eq(discussions.id, discussionId));
 
-        if (!existing) {
-            return res.status(404).json({ error: 'Discussion not found' });
+        if (!existing || existing.classId !== classIdNum) {
+            return res.status(404).json({ error: 'Discussion not found in this class' });
         }
 
         // Only author or teacher/admin can delete
@@ -487,9 +500,16 @@ router.delete("/classes/:classId/discussions/:id", async (req, res) => {
 });
 
 // Pin discussion (teacher only)
-router.post("/classes/:classId/discussions/:id/pin", async (req, res) => {
+router.post("/classes/:classId/discussions/:id/pin", requireFreshAuth, async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id, classId } = req.params;
+        if (typeof id !== 'string' || typeof classId !== 'string') {
+            return res.status(400).json({ error: 'Invalid discussion or class ID' });
+        }
+        const classIdNum = parseInt(classId);
+        if (!Number.isFinite(classIdNum)) {
+            return res.status(400).json({ error: 'Invalid class ID' });
+        }
         const discussionId = parseInt(id);
         const authUser = getAuthUser(req);
         const userId = authUser?.id;
@@ -497,6 +517,16 @@ router.post("/classes/:classId/discussions/:id/pin", async (req, res) => {
 
         if (!userId || (userRole !== 'teacher' && userRole !== 'admin')) {
             return res.status(403).json({ error: 'Forbidden - teachers only' });
+        }
+
+        // Verify discussion belongs to the class
+        const [existing] = await db
+            .select({ classId: discussions.classId })
+            .from(discussions)
+            .where(eq(discussions.id, discussionId));
+
+        if (!existing || existing.classId !== classIdNum) {
+            return res.status(404).json({ error: 'Discussion not found in this class' });
         }
 
         const [updated] = await db
@@ -520,9 +550,16 @@ router.post("/classes/:classId/discussions/:id/pin", async (req, res) => {
 });
 
 // Lock discussion (teacher only)
-router.post("/classes/:classId/discussions/:id/lock", async (req, res) => {
+router.post("/classes/:classId/discussions/:id/lock", requireFreshAuth, async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id, classId } = req.params;
+        if (typeof id !== 'string' || typeof classId !== 'string') {
+            return res.status(400).json({ error: 'Invalid discussion or class ID' });
+        }
+        const classIdNum = parseInt(classId);
+        if (!Number.isFinite(classIdNum)) {
+            return res.status(400).json({ error: 'Invalid class ID' });
+        }
         const discussionId = parseInt(id);
         const authUser = getAuthUser(req);
         const userId = authUser?.id;
@@ -530,6 +567,16 @@ router.post("/classes/:classId/discussions/:id/lock", async (req, res) => {
 
         if (!userId || (userRole !== 'teacher' && userRole !== 'admin')) {
             return res.status(403).json({ error: 'Forbidden - teachers only' });
+        }
+
+        // Verify discussion belongs to the class
+        const [existing] = await db
+            .select({ classId: discussions.classId })
+            .from(discussions)
+            .where(eq(discussions.id, discussionId));
+
+        if (!existing || existing.classId !== classIdNum) {
+            return res.status(404).json({ error: 'Discussion not found in this class' });
         }
 
         const [updated] = await db
@@ -556,6 +603,10 @@ router.post("/classes/:classId/discussions/:id/lock", async (req, res) => {
 router.get("/discussions/:discussionId/replies", async (req, res) => {
     try {
         const { discussionId } = req.params;
+        if (typeof discussionId !== 'string') {
+            return res.status(400).json({ error: 'Invalid discussion ID' });
+        }
+        const discussionIdNum = parseInt(discussionId);
 
         const replies = await db
             .select({
@@ -569,7 +620,7 @@ router.get("/discussions/:discussionId/replies", async (req, res) => {
             })
             .from(discussionReplies)
             .leftJoin(user, eq(discussionReplies.authorId, user.id))
-            .where(eq(discussionReplies.discussionId, parseInt(discussionId)))
+            .where(eq(discussionReplies.discussionId, discussionIdNum))
             .orderBy(
                 discussionReplies.isAccepted,
                 desc(discussionReplies.upvotes),
@@ -595,6 +646,11 @@ router.post("/discussions/:discussionId/replies", async (req, res) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
+        if (typeof discussionId !== 'string') {
+            return res.status(400).json({ error: 'Invalid discussion ID' });
+        }
+        const discussionIdNum = parseInt(discussionId);
+
         if (!content) {
             return res.status(400).json({ error: 'Content is required' });
         }
@@ -603,7 +659,7 @@ router.post("/discussions/:discussionId/replies", async (req, res) => {
         const [discussion] = await db
             .select({ isLocked: discussions.isLocked })
             .from(discussions)
-            .where(eq(discussions.id, parseInt(discussionId)));
+            .where(eq(discussions.id, discussionIdNum));
 
         if (!discussion) {
             return res.status(404).json({ error: 'Discussion not found' });
@@ -613,20 +669,24 @@ router.post("/discussions/:discussionId/replies", async (req, res) => {
             return res.status(403).json({ error: 'Discussion is locked' });
         }
 
-        // If parentId provided, verify it exists
+        // If parentId provided, verify it exists and belongs to the same discussion
         if (parentId) {
-            const parentReplies = await db
-                .select({ id: discussionReplies.id })
+            const [parentReply] = await db
+                .select({ id: discussionReplies.id, discussionId: discussionReplies.discussionId })
                 .from(discussionReplies)
                 .where(eq(discussionReplies.id, parseInt(parentId)));
 
-            if (!parentReplies || parentReplies.length === 0) {
+            if (!parentReply) {
                 return res.status(404).json({ error: 'Parent reply not found' });
+            }
+
+            if (parentReply.discussionId !== discussionIdNum) {
+                return res.status(400).json({ error: 'Parent reply does not belong to this discussion' });
             }
         }
 
         const newReply: NewDiscussionReply = {
-            discussionId: parseInt(discussionId),
+            discussionId: discussionIdNum,
             parentId: parentId ? parseInt(parentId) : null,
             authorId: userId,
             content,
@@ -635,10 +695,16 @@ router.post("/discussions/:discussionId/replies", async (req, res) => {
             isAccepted: false,
         };
 
-        const [createdReply] = await db
+        const result = await db
             .insert(discussionReplies)
             .values(newReply)
             .returning();
+            
+        const createdReply = Array.isArray(result) ? result[0] : null;
+
+        if (!createdReply) {
+            return res.status(500).json({ error: 'Failed to create reply' });
+        }
 
         // Update discussion reply count and last activity
         await db.update(discussions)
@@ -646,7 +712,7 @@ router.post("/discussions/:discussionId/replies", async (req, res) => {
                 replyCount: sql`${discussions.replyCount} + 1`,
                 lastActivityAt: new Date(),
             })
-            .where(eq(discussions.id, parseInt(discussionId)));
+            .where(eq(discussions.id, discussionIdNum));
 
         res.status(201).json({ data: createdReply });
     } catch (error) {
@@ -665,6 +731,10 @@ router.put("/discussions/:discussionId/replies/:replyId", async (req, res) => {
 
         if (!userId) {
             return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        if (typeof replyId !== 'string') {
+            return res.status(400).json({ error: 'Invalid reply ID' });
         }
 
         const [existing] = await db
@@ -697,7 +767,7 @@ router.put("/discussions/:discussionId/replies/:replyId", async (req, res) => {
 });
 
 // Delete reply
-router.delete("/discussions/:discussionId/replies/:replyId", async (req, res) => {
+router.delete("/discussions/:discussionId/replies/:replyId", requireFreshAuth, async (req, res) => {
     try {
         const { replyId } = req.params;
         const authUser = getAuthUser(req);
@@ -706,6 +776,10 @@ router.delete("/discussions/:discussionId/replies/:replyId", async (req, res) =>
 
         if (!userId) {
             return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        if (typeof replyId !== 'string') {
+            return res.status(400).json({ error: 'Invalid reply ID' });
         }
 
         const [existing] = await db
@@ -721,12 +795,23 @@ router.delete("/discussions/:discussionId/replies/:replyId", async (req, res) =>
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        await db.delete(discussionReplies).where(eq(discussionReplies.id, parseInt(replyId)));
+        // Use a transaction to delete the reply and recompute the total count
+        await db.transaction(async (tx) => {
+            await tx.delete(discussionReplies).where(eq(discussionReplies.id, parseInt(replyId)));
 
-        // Update discussion reply count
-        await db.update(discussions)
-            .set({ replyCount: sql`GREATEST(0, ${discussions.replyCount} - 1)` })
-            .where(eq(discussions.id, existing.discussionId));
+            // Recompute the actual reply count for the discussion
+            const [countResult] = await tx
+                .select({ count: sql<number>`count(*)` })
+                .from(discussionReplies)
+                .where(eq(discussionReplies.discussionId, existing.discussionId));
+
+            const actualCount = countResult?.count ?? 0;
+
+            // Update the discussion with the accurate count
+            await tx.update(discussions)
+                .set({ replyCount: actualCount })
+                .where(eq(discussions.id, existing.discussionId));
+        });
 
         res.json({ message: 'Reply deleted successfully' });
     } catch (error) {
@@ -836,7 +921,7 @@ router.post("/discussions/:discussionId/replies/:replyId/vote", async (req, res)
 });
 
 // Accept answer (teacher only)
-router.post("/discussions/:discussionId/replies/:replyId/accept", async (req, res) => {
+router.post("/discussions/:discussionId/replies/:replyId/accept", requireFreshAuth, async (req, res) => {
     try {
         const { discussionId, replyId } = req.params;
         const authUser = getAuthUser(req);
@@ -845,6 +930,10 @@ router.post("/discussions/:discussionId/replies/:replyId/accept", async (req, re
 
         if (!userId || (userRole !== 'teacher' && userRole !== 'admin')) {
             return res.status(403).json({ error: 'Forbidden - teachers only' });
+        }
+
+        if (typeof discussionId !== 'string' || typeof replyId !== 'string') {
+            return res.status(400).json({ error: 'Invalid ID' });
         }
 
         const parsedDiscussionId = parseInt(discussionId);

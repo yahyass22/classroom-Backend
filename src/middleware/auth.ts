@@ -21,12 +21,13 @@ interface CachedSession {
         role: 'student' | 'teacher' | 'admin';
         image?: string | null | undefined;
     };
-    expiresAt: number;
+    expiresAt: number; // Local TTL expiry
+    providerExpiresAt: number; // Real provider session expiry
 }
 
 const sessionCache = new Map<string, CachedSession>();
 const CACHE_MAX_SIZE = 1000;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes local cache TTL
 
 /**
  * Convert IncomingHttpHeaders to Headers-like object
@@ -46,7 +47,10 @@ function headersToHeadersObj(headers: IncomingHttpHeaders): { get(name: string):
 /**
  * Get session from cache or fetch from auth API
  */
-export async function getSessionFromHeaders(headers: IncomingHttpHeaders): Promise<CachedSession | null> {
+export async function getSessionFromHeaders(
+    headers: IncomingHttpHeaders, 
+    options: { forceFresh?: boolean } = {}
+): Promise<CachedSession | null> {
     // Try to get session token from headers
     const authHeader = headers.authorization;
     const cookieHeader = headers.cookie;
@@ -58,20 +62,35 @@ export async function getSessionFromHeaders(headers: IncomingHttpHeaders): Promi
         return null;
     }
 
-    // Check cache first
-    const cached = sessionCache.get(sessionToken);
-    if (cached && cached.expiresAt > Date.now()) {
-        return cached;
+    // Check cache first (unless forceFresh is requested)
+    if (!options.forceFresh) {
+        const cached = sessionCache.get(sessionToken);
+        // Ensure BOTH the local TTL and the provider's expiry are still valid
+        if (cached && cached.expiresAt > Date.now() && cached.providerExpiresAt > Date.now()) {
+            return cached;
+        }
     }
 
-    // Fetch from auth API
+    // Fetch from auth API (fresh session)
     try {
         const headersObj = headersToHeadersObj(headers);
         const session = await auth.api.getSession({ 
             headers: headersObj as any 
         });
         
-        if (!session?.user) {
+        if (!session?.user || !session?.session) {
+            // If we're here and forceFresh was true, it means session is truly gone/revoked
+            if (options.forceFresh) {
+                sessionCache.delete(sessionToken);
+            }
+            return null;
+        }
+
+        const providerExpiresAt = new Date(session.session.expiresAt).getTime();
+        
+        // If provider session already expired, don't cache
+        if (providerExpiresAt <= Date.now()) {
+            sessionCache.delete(sessionToken);
             return null;
         }
 
@@ -84,6 +103,7 @@ export async function getSessionFromHeaders(headers: IncomingHttpHeaders): Promi
                 image: session.user.image ?? undefined,
             },
             expiresAt: Date.now() + CACHE_TTL_MS,
+            providerExpiresAt,
         };
 
         // Add to cache (with LRU eviction)
@@ -107,6 +127,9 @@ export async function getSessionFromHeaders(headers: IncomingHttpHeaders): Promi
  */
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // We can check if this route specifically needs a fresh session for role changes
+        // For now, we perform a standard session retrieval which uses the cache
+        // but validates it against the provider's expiry.
         const cachedSession = await getSessionFromHeaders(req.headers);
 
         if (cachedSession?.user) {
@@ -119,6 +142,26 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
         console.error("Auth middleware error:", error);
         // Don't fail the request, just continue without user context
         next();
+    }
+};
+
+/**
+ * Middleware that forces a fresh session check (bypassing cache) 
+ * for critical operations or authorization-sensitive flows.
+ */
+export const requireFreshAuth = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const cachedSession = await getSessionFromHeaders(req.headers, { forceFresh: true });
+
+        if (cachedSession?.user) {
+            (req as AuthRequest).user = cachedSession.user;
+            next();
+        } else {
+            res.status(401).json({ error: 'Unauthorized', message: 'Session expired or invalid. Please sign in again.' });
+        }
+    } catch (error) {
+        console.error("Fresh auth middleware error:", error);
+        res.status(500).json({ error: 'Internal server error during authentication' });
     }
 };
 
