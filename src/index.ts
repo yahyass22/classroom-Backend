@@ -39,10 +39,11 @@ app.use(express.json());
 // Auth routes - mounted before other middleware to skip rate limiting
 app.use('/api/auth', toNodeHandler(auth));
 
-// Auth middleware - retrieves session and attaches user to request
-app.use(authMiddleware);
-
+// Security middleware (rate limiting) - runs FIRST to protect against abuse
 app.use(securityMiddleware);
+
+// Auth middleware - retrieves session and attaches user to request (uses shared cache)
+app.use(authMiddleware);
 
 // IMPORTANT: discussions router must be mounted BEFORE classes router
 // because it handles /api/classes/:id/discussions routes

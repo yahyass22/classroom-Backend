@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS discussions (
 CREATE TABLE IF NOT EXISTS discussion_replies (
     id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     discussion_id INTEGER NOT NULL REFERENCES discussions(id) ON DELETE CASCADE,
-    parent_id INTEGER,
+    parent_id INTEGER REFERENCES discussion_replies(id) ON DELETE CASCADE,
     author_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     upvotes INTEGER DEFAULT 0 NOT NULL,

@@ -165,13 +165,17 @@ router.get("/discussions/:id", async (req, res) => {
         const userId = authUser?.id;
         if (userId) {
             try {
-                await db.insert(discussionViews)
+                const result = await db.insert(discussionViews)
                     .values({ discussionId, userId })
-                    .onConflictDoNothing();
+                        .onConflictDoNothing()
+                        .returning();
 
-                await db.update(discussions)
-                    .set({ viewCount: sql`${discussions.viewCount} + 1` })
+                // Only increment if this was a new view
+                   if (result.length > 0) {
+                    await db.update(discussions)
+                      .set({ viewCount: sql`${discussions.viewCount} + 1` })
                     .where(eq(discussions.id, discussionId));
+                     }
             } catch (e) {
                 // Ignore view tracking errors
             }
@@ -198,8 +202,11 @@ router.get("/classes/:classId/discussions", async (req, res) => {
         const currentPage = Math.max(1, parseInt(String(page), 10) || 1);
         const limitPerPage = Math.min(Math.max(1, parseInt(String(limit), 10) || 20), 100);
         const offset = (currentPage - 1) * limitPerPage;
-
-        const filterConditions = [eq(discussions.classId, parseInt(classId))];
+        const classIdNum = parseInt(classId);
+                if (!Number.isFinite(classIdNum)) {
+                        return res.status(400).json({ error: 'Invalid class ID' });
+                    }
+        const filterConditions = [eq(discussions.classId, classIdNum)];
 
         if (type && type !== 'all') {
             filterConditions.push(eq(discussions.type, type as any));
@@ -744,74 +751,84 @@ router.post("/discussions/:discussionId/replies/:replyId/vote", async (req, res)
             return res.status(400).json({ error: 'Invalid vote type' });
         }
 
-        // Check if vote exists
-        const [existingVote] = await db
-            .select()
-            .from(discussionVotes)
-            .where(and(
-                eq(discussionVotes.replyId, parseInt(replyId)),
-                eq(discussionVotes.userId, userId)
-            ));
-
-        if (existingVote) {
-            if (voteType === existingVote.voteType) {
-                // Remove vote (toggle off)
-                await db.delete(discussionVotes)
-                    .where(and(
-                        eq(discussionVotes.replyId, parseInt(replyId)),
-                        eq(discussionVotes.userId, userId)
-                    ));
-                
-                // Update reply vote counts
-                const field = existingVote.voteType === 'up' ? 'upvotes' : 'downvotes';
-                await db.update(discussionReplies)
-                    .set({ [field]: sql`GREATEST(0, ${discussionReplies[field]} - 1)` })
-                    .where(eq(discussionReplies.id, parseInt(replyId)));
-            } else {
-                // Change vote
-                await db.update(discussionVotes)
-                    .set({ voteType, createdAt: new Date() })
-                    .where(and(
-                        eq(discussionVotes.replyId, parseInt(replyId)),
-                        eq(discussionVotes.userId, userId)
-                    ));
-                
-                // Update reply vote counts
-                const oldField = existingVote.voteType === 'up' ? 'upvotes' : 'downvotes';
-                const newField = voteType === 'up' ? 'upvotes' : 'downvotes';
-                await db.update(discussionReplies)
-                    .set({ 
-                        [oldField]: sql`GREATEST(0, ${discussionReplies[oldField]} - 1)`,
-                        [newField]: sql`${discussionReplies[newField]} + 1`
-                    })
-                    .where(eq(discussionReplies.id, parseInt(replyId)));
-            }
-        } else if (voteType) {
-            // Create new vote
-            await db.insert(discussionVotes)
-                .values({ replyId: parseInt(replyId), userId, voteType });
-            
-            // Update reply vote counts
-            const field = voteType === 'up' ? 'upvotes' : 'downvotes';
-            await db.update(discussionReplies)
-                .set({ [field]: sql`${discussionReplies[field]} + 1` })
-                .where(eq(discussionReplies.id, parseInt(replyId)));
+        const parsedReplyId = parseInt(replyId);
+        if (!Number.isFinite(parsedReplyId)) {
+            return res.status(400).json({ error: 'Invalid reply ID' });
         }
 
-        // Return updated reply
-        const [updatedReply] = await db
-            .select({
-                ...getTableColumns(discussionReplies),
-                voteCount: sql<number>`COALESCE(
-                    (SELECT COUNT(*) FROM discussion_votes WHERE reply_id = discussion_replies.id AND vote_type = 'up') -
-                    (SELECT COUNT(*) FROM discussion_votes WHERE reply_id = discussion_replies.id AND vote_type = 'down'),
-                    0
-                )`
-            })
-            .from(discussionReplies)
-            .where(eq(discussionReplies.id, parseInt(replyId)));
+        // Wrap all vote operations in a transaction to prevent race conditions
+        const result = await db.transaction(async (tx) => {
+            // Check if vote exists
+            const [existingVote] = await tx
+                .select()
+                .from(discussionVotes)
+                .where(and(
+                    eq(discussionVotes.replyId, parsedReplyId),
+                    eq(discussionVotes.userId, userId)
+                ));
 
-        res.json({ data: updatedReply });
+            if (existingVote) {
+                if (voteType === existingVote.voteType) {
+                    // Remove vote (toggle off)
+                    await tx.delete(discussionVotes)
+                        .where(and(
+                            eq(discussionVotes.replyId, parsedReplyId),
+                            eq(discussionVotes.userId, userId)
+                        ));
+
+                    // Update reply vote counts
+                    const field = existingVote.voteType === 'up' ? 'upvotes' : 'downvotes';
+                    await tx.update(discussionReplies)
+                        .set({ [field]: sql`GREATEST(0, ${discussionReplies[field]} - 1)` })
+                        .where(eq(discussionReplies.id, parsedReplyId));
+                } else {
+                    // Change vote
+                    await tx.update(discussionVotes)
+                        .set({ voteType, createdAt: new Date() })
+                        .where(and(
+                            eq(discussionVotes.replyId, parsedReplyId),
+                            eq(discussionVotes.userId, userId)
+                        ));
+
+                    // Update reply vote counts
+                    const oldField = existingVote.voteType === 'up' ? 'upvotes' : 'downvotes';
+                    const newField = voteType === 'up' ? 'upvotes' : 'downvotes';
+                    await tx.update(discussionReplies)
+                        .set({
+                            [oldField]: sql`GREATEST(0, ${discussionReplies[oldField]} - 1)`,
+                            [newField]: sql`${discussionReplies[newField]} + 1`
+                        })
+                        .where(eq(discussionReplies.id, parsedReplyId));
+                }
+            } else if (voteType) {
+                // Create new vote
+                await tx.insert(discussionVotes)
+                    .values({ replyId: parsedReplyId, userId, voteType });
+
+                // Update reply vote counts
+                const field = voteType === 'up' ? 'upvotes' : 'downvotes';
+                await tx.update(discussionReplies)
+                    .set({ [field]: sql`${discussionReplies[field]} + 1` })
+                    .where(eq(discussionReplies.id, parsedReplyId));
+            }
+
+            // Return updated reply
+            const [updatedReply] = await tx
+                .select({
+                    ...getTableColumns(discussionReplies),
+                    voteCount: sql<number>`COALESCE(
+                        (SELECT COUNT(*) FROM discussion_votes WHERE reply_id = discussion_replies.id AND vote_type = 'up') -
+                        (SELECT COUNT(*) FROM discussion_votes WHERE reply_id = discussion_replies.id AND vote_type = 'down'),
+                        0
+                    )`
+                })
+                .from(discussionReplies)
+                .where(eq(discussionReplies.id, parsedReplyId));
+
+            return updatedReply;
+        });
+
+        res.json({ data: result });
     } catch (error) {
         console.error(`POST /discussions/:discussionId/replies/:replyId/vote error:`, error);
         res.status(500).json({ error: 'Failed to vote on reply' });
@@ -830,32 +847,35 @@ router.post("/discussions/:discussionId/replies/:replyId/accept", async (req, re
             return res.status(403).json({ error: 'Forbidden - teachers only' });
         }
 
+        const parsedDiscussionId = parseInt(discussionId);
+        const parsedReplyId = parseInt(replyId);
+
+        if (!Number.isFinite(parsedDiscussionId) || !Number.isFinite(parsedReplyId)) {
+            return res.status(400).json({ error: 'Invalid ID' });
+        }
+
         // Verify reply belongs to discussion
         const [reply] = await db
             .select({ discussionId: discussionReplies.discussionId })
             .from(discussionReplies)
-            .where(eq(discussionReplies.id, parseInt(replyId)));
+            .where(eq(discussionReplies.id, parsedReplyId));
 
-        if (!reply || reply.discussionId !== parseInt(discussionId)) {
+        if (!reply || reply.discussionId !== parsedDiscussionId) {
             return res.status(404).json({ error: 'Reply not found in this discussion' });
         }
 
-        // Unset all accepted replies in this discussion
-        await db.update(discussionReplies)
-            .set({ isAccepted: false })
-            .where(eq(discussionReplies.discussionId, parseInt(discussionId)));
+        // Use a transaction to atomically clear all accepted replies and set the new one
+        await db.transaction(async (tx) => {
+            // Clear isAccepted for all replies in this discussion
+            await tx.update(discussionReplies)
+                .set({ isAccepted: false })
+                .where(eq(discussionReplies.discussionId, parsedDiscussionId));
 
-        // Toggle the selected reply
-        const [currentReply] = await db
-            .select({ isAccepted: discussionReplies.isAccepted })
-            .from(discussionReplies)
-            .where(eq(discussionReplies.id, parseInt(replyId)));
-
-        if (currentReply && !currentReply.isAccepted) {
-            await db.update(discussionReplies)
+            // Set isAccepted=true for the selected reply
+            await tx.update(discussionReplies)
                 .set({ isAccepted: true })
-                .where(eq(discussionReplies.id, parseInt(replyId)));
-        }
+                .where(eq(discussionReplies.id, parsedReplyId));
+        });
 
         res.json({ message: 'Answer status updated' });
     } catch (error) {

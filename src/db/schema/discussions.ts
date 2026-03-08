@@ -30,7 +30,8 @@ export const discussions = pgTable("discussions", {
 export const discussionReplies = pgTable("discussion_replies", {
     id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
     discussionId: integer('discussion_id').notNull().references(() => discussions.id, { onDelete: 'cascade' }),
-    parentId: integer('parent_id'),
+    parentId: integer('parent_id').references(() => discussionReplies.id, { onDelete: 'cascade' }),
+
     authorId: text('author_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
     upvotes: integer('upvotes').default(0).notNull(),
