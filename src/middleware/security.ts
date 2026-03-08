@@ -1,6 +1,29 @@
 import { aj } from "../config/arcjet.js";
 import { Request, Response, NextFunction } from "express";
 import {ArcjetNodeRequest, slidingWindow} from "@arcjet/node";
+import { getSessionFromHeaders, type AuthRequest } from "./auth.js";
+
+type RateLimitRole = 'admin' | 'teacher' | 'student' | 'guest';
+
+/**
+ * Get user role from session cache or headers for rate limiting
+ * This runs BEFORE authMiddleware, so it uses its own lightweight cache lookup
+ */
+async function getUserRole(req: Request): Promise<RateLimitRole> {
+    // Try to get role from request (if authMiddleware already ran)
+    const authReq = req as AuthRequest;
+    if (authReq.user?.role) {
+        return authReq.user.role;
+    }
+
+    // Fall back to session cache lookup
+    try {
+        const cachedSession = await getSessionFromHeaders(req.headers);
+        return cachedSession?.user?.role ?? 'guest';
+    } catch {
+        return 'guest';
+    }
+}
 
 const securityMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     // Skip rate limiting in development and test environments
@@ -9,7 +32,7 @@ const securityMiddleware = async (req: Request, res: Response, next: NextFunctio
     }
 
     try {
-        const role: RateLimitRole = req.user?.role ?? 'guest';
+        const role: RateLimitRole = await getUserRole(req);
 
         let limit: number;
         let message: string;
