@@ -47,7 +47,7 @@ async function seedDiscussions() {
         voteType: 'up',
         createdAt: new Date(),
       }))
-    );
+    ).onConflictDoNothing();
   };
 
   for (const classItem of allClasses) {
