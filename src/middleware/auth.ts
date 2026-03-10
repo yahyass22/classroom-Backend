@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from "express";
+﻿import { Request, Response, NextFunction } from "express";
 import { auth } from "../lib/auth.js";
 import type { IncomingHttpHeaders } from "http";
+import { parse } from 'cookie';
 
 export interface AuthRequest extends Request {
     user?: {
@@ -30,33 +31,56 @@ const CACHE_MAX_SIZE = 1000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes local cache TTL
 
 /**
- * Convert IncomingHttpHeaders to Headers-like object
+ * Extract session token from cookie header with proper parsing
  */
-function headersToHeadersObj(headers: IncomingHttpHeaders): { get(name: string): string | null } {
-    return {
-        get: (name: string) => {
-            const value = headers[name.toLowerCase()];
-            if (Array.isArray(value)) {
-                return value[0] ?? null;
-            }
-            return value ?? null;
+function extractSessionTokenFromCookie(cookieHeader: string | undefined): string | null {
+    if (!cookieHeader) {
+        return null;
+    }
+
+    try {
+        // Use proper cookie parsing
+        const cookies = parse(cookieHeader);
+        const sessionToken = cookies['better-auth.session_token'];
+        
+        if (sessionToken) {
+            // DO NOT split the token. Better-auth might need the full string
+            // including any signature parts for proper identification/caching.
+            return sessionToken.trim();
         }
-    };
+
+        // Fallback: try regex matching for edge cases
+        const match = cookieHeader.match(/better-auth\.session_token=([^;]+)/);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+
+        return null;
+    } catch (error) {
+        console.error('âŒ Error parsing cookies:', error);
+        return null;
+    }
 }
 
 /**
  * Get session from cache or fetch from auth API
  */
 export async function getSessionFromHeaders(
-    headers: IncomingHttpHeaders, 
+    headers: IncomingHttpHeaders,
     options: { forceFresh?: boolean } = {}
 ): Promise<CachedSession | null> {
     // Try to get session token from headers
     const authHeader = headers.authorization;
     const cookieHeader = headers.cookie;
-    const sessionToken = (typeof authHeader === 'string' ? authHeader.replace('Bearer ', '') : '') || 
-                         (typeof cookieHeader === 'string' ? cookieHeader.match(/better-auth.session_token=([^;]+)/)?.[1] : '') ||
-                         '';
+    
+    // Extract token from Bearer header
+    const bearerToken = typeof authHeader === 'string' ? authHeader.replace('Bearer ', '').trim() : '';
+    
+    // Extract token from cookie
+    const cookieToken = extractSessionTokenFromCookie(typeof cookieHeader === 'string' ? cookieHeader : undefined);
+    
+    // Use bearer token first, then cookie token
+    const sessionToken = bearerToken || cookieToken || '';
 
     if (!sessionToken) {
         return null;
@@ -73,12 +97,22 @@ export async function getSessionFromHeaders(
 
     // Fetch from auth API (fresh session)
     try {
-        const headersObj = headersToHeadersObj(headers);
-        const session = await auth.api.getSession({ 
-            headers: headersObj as any 
+        // Use a more robust headers implementation
+        const headersObj = new Headers();
+        Object.entries(headers).forEach(([key, value]) => {
+            if (Array.isArray(value)) {
+                value.forEach(v => headersObj.append(key, v));
+            } else if (value) {
+                headersObj.set(key, value);
+            }
         });
-        
+
+        const session = await auth.api.getSession({
+            headers: headersObj
+        });
+
         if (!session?.user || !session?.session) {
+            console.error('âŒ Better-auth session lookup failed for token:', sessionToken.substring(0, 15) + '...');
             // If we're here and forceFresh was true, it means session is truly gone/revoked
             if (options.forceFresh) {
                 sessionCache.delete(sessionToken);
@@ -131,6 +165,18 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
         // For now, we perform a standard session retrieval which uses the cache
         // but validates it against the provider's expiry.
         const cachedSession = await getSessionFromHeaders(req.headers);
+
+        const debugAuth = process.env.DEBUG_AUTH === 'true';
+        const authLog: Record<string, unknown> = {
+            hasCookie: !!req.headers.cookie,
+            hasSession: !!cachedSession,
+            userId: cachedSession?.user.id,
+            userRole: cachedSession?.user.role
+        };
+        if (debugAuth) {
+            authLog.cookieLength = req.headers.cookie?.length;
+        }
+        console.log('Auth Middleware:', authLog);
 
         if (cachedSession?.user) {
             // Attach user to request for downstream middleware/routes

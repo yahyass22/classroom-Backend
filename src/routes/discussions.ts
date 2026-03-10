@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import { and, desc, eq, getTableColumns, ilike, or, sql, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
@@ -339,6 +339,17 @@ router.get("/classes/:classId/discussions/:id", async (req, res) => {
 
 // Create new discussion
 router.post("/classes/:classId/discussions", async (req, res) => {
+    console.log('\\n\\n========================================');
+    console.log('CREATE DISCUSSION REQUEST RECEIVED');
+    console.log('========================================');
+    console.log('Request summary:', {
+        classId: req.params.classId,
+        hasBody: !!req.body,
+        bodyKeys: req.body ? Object.keys(req.body) : [],
+        hasCookie: !!req.headers.cookie
+    });
+    console.log('========================================\\n\\n');
+    
     try {
         const { classId } = req.params;
         const { title, content, type = 'general' } = req.body;
@@ -346,22 +357,29 @@ router.post("/classes/:classId/discussions", async (req, res) => {
         const userId = authUser?.id;
         const userRole = authUser?.role;
 
-        console.log('📝 Create discussion request:', {
+        console.log('Create discussion request:', {
             classId,
             userId,
             userRole,
-            title,
+            titleLength: title?.length,
             contentLength: content?.length,
-            type
+            type,
+            hasCookie: !!req.headers.cookie
+        });
+        
+        console.log('Request headers:', {
+            origin: req.headers.origin,
+            referer: req.headers.referer
         });
 
         if (!userId) {
-            console.error('❌ Unauthorized: No user ID in session');
+            console.error('âŒ Unauthorized: No user ID in session');
+            console.error('ðŸª Cookies received:', { hasCookie: !!req.headers.cookie, cookieLength: req.headers.cookie?.length });
             return res.status(401).json({ error: 'Unauthorized. Please log in to create discussions.' });
         }
 
         if (!title || !content) {
-            console.error('❌ Bad request: Missing title or content');
+            console.error('âŒ Bad request: Missing title or content');
             return res.status(400).json({ error: 'Title and content are required' });
         }
 
@@ -372,11 +390,11 @@ router.post("/classes/:classId/discussions", async (req, res) => {
             .where(eq(classes.id, parseInt(classId)));
 
         if (!classExists) {
-            console.error('❌ Class not found:', classId);
+            console.error('âŒ Class not found:', classId);
             return res.status(404).json({ error: 'Class not found' });
         }
 
-        console.log('✅ Creating discussion in class:', classExists.name);
+        console.log('âœ… Creating discussion in class:', classExists.name);
 
         const newDiscussion: NewDiscussion = {
             classId: parseInt(classId),
@@ -396,10 +414,10 @@ router.post("/classes/:classId/discussions", async (req, res) => {
             .values(newDiscussion)
             .returning();
 
-        console.log('✅ Discussion created successfully:', createdDiscussion?.id);
+        console.log('âœ… Discussion created successfully:', createdDiscussion?.id);
         res.status(201).json({ data: createdDiscussion });
     } catch (error) {
-        console.error('❌ POST /classes/:classId/discussions error:', error);
+        console.error('âŒ POST /classes/:classId/discussions error:', error);
         res.status(500).json({ error: 'Failed to create discussion' });
     }
 });
@@ -974,3 +992,4 @@ router.post("/discussions/:discussionId/replies/:replyId/accept", requireFreshAu
 });
 
 export default router;
+

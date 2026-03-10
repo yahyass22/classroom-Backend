@@ -224,50 +224,53 @@ router.get("/at-risk", async (_req, res) => {
   }
 });
 
-// Schedule heatmap
+// Schedule heatmap / routine
 router.get("/schedule-heatmap", async (_req, res) => {
   try {
     const activeClasses = await db
       .select({
+        id: classes.id,
+        name: classes.name,
         schedules: classes.schedules,
-        className: classes.name,
-        subjectCode: subjects.code
+        subjectName: subjects.name,
+        subjectCode: subjects.code,
+        departmentCode: departments.code,
+        departmentName: departments.name,
+        teacherName: user.name,
+        teacherImage: user.image
       })
       .from(classes)
       .leftJoin(subjects, eq(classes.subjectId, subjects.id))
+      .leftJoin(departments, eq(subjects.departmentId, departments.id))
+      .leftJoin(user, eq(classes.teacherId, user.id))
       .where(eq(classes.status, "active"));
 
-    const heatmapData: any[] = [];
-    const slotMap = new Map<string, { count: number; subjects: string[]; classes: string[] }>();
+    const routineData: any[] = [];
 
     activeClasses.forEach((cls) => {
       if (cls.schedules && Array.isArray(cls.schedules)) {
         cls.schedules.forEach((sched: any) => {
-          const key = `${sched.day}-${parseInt(sched.startTime.split(":")[0])}`;
-          const existing = slotMap.get(key) || { count: 0, subjects: [], classes: [] };
-          slotMap.set(key, {
-            count: existing.count + 1,
-            subjects: [...new Set([...existing.subjects, cls.subjectCode ?? ""])],
-            classes: [...new Set([...existing.classes, cls.className ?? ""])]
+          routineData.push({
+            classId: cls.id,
+            className: cls.name,
+            subjectName: cls.subjectName,
+            subjectCode: cls.subjectCode,
+            departmentCode: cls.departmentCode,
+            departmentName: cls.departmentName,
+            teacherName: cls.teacherName,
+            teacherImage: cls.teacherImage,
+            day: sched.day,
+            startTime: sched.startTime,
+            endTime: sched.endTime
           });
         });
       }
     });
 
-    slotMap.forEach((val, key) => {
-      const [day, hour] = key.split("-");
-      heatmapData.push({
-        day,
-        hour: parseInt(hour || "0"),
-        count: val.count,
-        subjects: val.subjects.filter((s): s is string => !!s),
-        classes: val.classes.filter((c): c is string => !!c)
-      });
-    });
-
-    res.json(heatmapData);
+    res.json(routineData);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch schedule heatmap" });
+    console.error("Failed to fetch schedule routine:", error);
+    res.status(500).json({ error: "Failed to fetch schedule data" });
   }
 });
 

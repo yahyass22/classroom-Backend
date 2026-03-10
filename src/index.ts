@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import AgentAPI from "apminsight";
 AgentAPI.config()
 
@@ -28,16 +28,72 @@ console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
 console.log("BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
 console.log("BETTER_AUTH_SECRET:", process.env.BETTER_AUTH_SECRET ? "Set" : "Missing");
 
+const rawFrontendURL = process.env.FRONTEND_URL!;
+const frontendURL = rawFrontendURL.endsWith('/') ? rawFrontendURL.slice(0, -1) : rawFrontendURL;
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: frontendURL,
   methods: ['GET','POST','PUT','DELETE'],
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Set-Cookie']
 }));
+
+// CORS debugging middleware
+app.use((req, res, next) => {
+  console.log('ðŸŒ CORS Debug:', {
+    path: req.path,
+    method: req.method,
+    origin: req.headers.origin,
+    hasCookie: !!req.headers.cookie,
+    cookieLength: req.headers.cookie?.length
+  });
+  next();
+});
 
 app.use(express.json());
 
 // Auth routes - mounted before other middleware to skip rate limiting
 app.use('/api/auth', toNodeHandler(auth));
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+if (isDevelopment) {
+  // Debug endpoint to check session (development only)
+  app.get('/api/debug-session', authMiddleware, (req, res) => {
+    console.log('Debug session request:', {
+      hasCookie: !!req.headers.cookie,
+      cookieLength: req.headers.cookie?.length,
+      origin: req.headers.origin
+    });
+    const authReq = req as any;
+    res.json({
+      hasCookie: !!req.headers.cookie,
+      cookieLength: req.headers.cookie?.length,
+      hasUser: !!authReq.user,
+      user: authReq.user ? {
+        id: authReq.user.id,
+        name: authReq.user.name,
+        role: authReq.user.role
+      } : null
+    });
+  });
+
+  // Debug endpoint to check session with auth middleware (development only)
+  app.get('/api/debug-auth', authMiddleware, (req: any, res) => {
+    const authReq = req as any;
+    res.json({
+      hasCookie: !!req.headers.cookie,
+      cookieLength: req.headers.cookie?.length,
+      hasUser: !!authReq.user,
+      user: authReq.user ? {
+        id: authReq.user.id,
+        name: authReq.user.name,
+        role: authReq.user.role
+      } : null
+    });
+  });
+}
 
 // Security middleware (rate limiting) - runs FIRST to protect against abuse
 app.use(securityMiddleware);
