@@ -22,6 +22,11 @@ async function seedDiscussions() {
   const student = students[0] || staff[0];
   const voterIds = Array.from(new Set([...students, ...staff].map((u) => u.id).filter(Boolean)));
 
+  const clampUpvotes = (upvotes: number, authorId?: string) => {
+    const eligibleCount = Math.max(voterIds.length - (authorId ? 1 : 0), 0);
+    return Math.min(Math.max(upvotes, 0), eligibleCount);
+  };
+
   const recordReplyActivity = async (discussionId: number, createdAt?: Date | null) => {
     await db.update(discussions)
       .set({
@@ -32,12 +37,11 @@ async function seedDiscussions() {
   };
 
   const seedUpvotes = async (replyId: number, upvotes: number, authorId?: string) => {
+    if (upvotes <= 0) return;
     const eligibleVoters = voterIds.filter((id) => id !== authorId);
-    const voteCount = Math.min(Math.max(upvotes, 0), eligibleVoters.length);
-    if (voteCount === 0) return;
 
     await db.insert(discussionVotes).values(
-      eligibleVoters.slice(0, voteCount).map((userId) => ({
+      eligibleVoters.slice(0, upvotes).map((userId) => ({
         replyId,
         userId,
         voteType: 'up',
@@ -59,19 +63,22 @@ async function seedDiscussions() {
       lastActivityAt: new Date(),
     }).returning();
 
+    const q1Reply1Upvotes = clampUpvotes(5, teacher.id);
+    const q1Reply2Upvotes = clampUpvotes(2, students[1]?.id || student.id);
+
     const q1Replies = await db.insert(discussionReplies).values([
       {
         discussionId: q1.id,
         authorId: teacher.id,
         content: "Great question! For simple toggles, `useState` is fine. For forms with many fields, `useReducer` keeps logic cleaner. Check the 'Resources' section for a demo.",
         isAccepted: true,
-        upvotes: 5,
+        upvotes: q1Reply1Upvotes,
       },
       {
         discussionId: q1.id,
         authorId: students[1]?.id || student.id,
         content: "I personally prefer using libraries like React Hook Form for this.",
-        upvotes: 2,
+        upvotes: q1Reply2Upvotes,
       }
     ]).returning();
 
@@ -101,11 +108,12 @@ async function seedDiscussions() {
       lastActivityAt: new Date(),
     }).returning();
 
+    const r1ReplyUpvotes = clampUpvotes(3, student.id);
     const r1Replies = await db.insert(discussionReplies).values({
       discussionId: r1.id,
       authorId: student.id,
       content: "This is exactly what I needed, thanks Professor!",
-      upvotes: 3,
+      upvotes: r1ReplyUpvotes,
     }).returning();
 
     for (const replyItem of r1Replies) {
