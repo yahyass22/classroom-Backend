@@ -339,6 +339,14 @@ router.get("/classes/:classId/discussions/:id", async (req, res) => {
 
 // Create new discussion
 router.post("/classes/:classId/discussions", async (req, res) => {
+    console.log('\n\n========================================');
+    console.log('📥 CREATE DISCUSSION REQUEST RECEIVED!');
+    console.log('========================================');
+    console.log('Request body:', req.body);
+    console.log('Request params:', req.params);
+    console.log('Request headers cookie:', req.headers.cookie?.substring(0, 100));
+    console.log('========================================\n\n');
+    
     try {
         const { classId } = req.params;
         const { title, content, type = 'general' } = req.body;
@@ -354,9 +362,19 @@ router.post("/classes/:classId/discussions", async (req, res) => {
             contentLength: content?.length,
             type
         });
+        
+        // Debug logging
+        console.log('🔍 Request headers:', {
+            cookie: req.headers.cookie?.substring(0, 100) + '...',
+            origin: req.headers.origin,
+            referer: req.headers.referer
+        });
+        
+        console.log('🔑 Session user:', authUser);
 
         if (!userId) {
             console.error('❌ Unauthorized: No user ID in session');
+            console.error('🍪 Cookies received:', req.headers.cookie);
             return res.status(401).json({ error: 'Unauthorized. Please log in to create discussions.' });
         }
 
