@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+﻿import { Request, Response, NextFunction } from "express";
 import { auth } from "../lib/auth.js";
 import type { IncomingHttpHeaders } from "http";
 import { parse } from 'cookie';
@@ -57,7 +57,7 @@ function extractSessionTokenFromCookie(cookieHeader: string | undefined): string
 
         return null;
     } catch (error) {
-        console.error('❌ Error parsing cookies:', error);
+        console.error('âŒ Error parsing cookies:', error);
         return null;
     }
 }
@@ -112,7 +112,7 @@ export async function getSessionFromHeaders(
         });
 
         if (!session?.user || !session?.session) {
-            console.error('❌ Better-auth session lookup failed for token:', sessionToken.substring(0, 15) + '...');
+            console.error('âŒ Better-auth session lookup failed for token:', sessionToken.substring(0, 15) + '...');
             // If we're here and forceFresh was true, it means session is truly gone/revoked
             if (options.forceFresh) {
                 sessionCache.delete(sessionToken);
@@ -166,13 +166,17 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
         // but validates it against the provider's expiry.
         const cachedSession = await getSessionFromHeaders(req.headers);
 
-        console.log('🔐 Auth Middleware:', {
+        const debugAuth = process.env.DEBUG_AUTH === 'true';
+        const authLog: Record<string, unknown> = {
             hasCookie: !!req.headers.cookie,
-            cookieSnippet: req.headers.cookie?.substring(0, 50),
             hasSession: !!cachedSession,
             userId: cachedSession?.user.id,
             userRole: cachedSession?.user.role
-        });
+        };
+        if (debugAuth) {
+            authLog.cookieLength = req.headers.cookie?.length;
+        }
+        console.log('Auth Middleware:', authLog);
 
         if (cachedSession?.user) {
             // Attach user to request for downstream middleware/routes

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "./db/index.js";
-import { discussions, discussionReplies } from "./db/schema/discussions.js";
+import { discussions, discussionReplies, discussionVotes } from "./db/schema/discussions.js";
 import { classes } from "./db/schema/app.js";
 import { user } from "./db/schema/auth.js";
 import { eq, sql } from "drizzle-orm";
@@ -20,6 +20,31 @@ async function seedDiscussions() {
 
   const teacher = staff[0] || students[0];
   const student = students[0] || staff[0];
+  const voterIds = Array.from(new Set([...students, ...staff].map((u) => u.id).filter(Boolean)));
+
+  const recordReplyActivity = async (discussionId: number, createdAt?: Date | null) => {
+    await db.update(discussions)
+      .set({
+        replyCount: sql`${discussions.replyCount} + 1`,
+        lastActivityAt: createdAt ?? new Date(),
+      })
+      .where(eq(discussions.id, discussionId));
+  };
+
+  const seedUpvotes = async (replyId: number, upvotes: number, authorId?: string) => {
+    const eligibleVoters = voterIds.filter((id) => id !== authorId);
+    const voteCount = Math.min(Math.max(upvotes, 0), eligibleVoters.length);
+    if (voteCount === 0) return;
+
+    await db.insert(discussionVotes).values(
+      eligibleVoters.slice(0, voteCount).map((userId) => ({
+        replyId,
+        userId,
+        voteType: 'up',
+        createdAt: new Date(),
+      }))
+    );
+  };
 
   for (const classItem of allClasses) {
     console.log(`Seeding discussions for class: ${classItem.name}`);
@@ -34,7 +59,7 @@ async function seedDiscussions() {
       lastActivityAt: new Date(),
     }).returning();
 
-    await db.insert(discussionReplies).values([
+    const q1Replies = await db.insert(discussionReplies).values([
       {
         discussionId: q1.id,
         authorId: teacher.id,
@@ -48,7 +73,12 @@ async function seedDiscussions() {
         content: "I personally prefer using libraries like React Hook Form for this.",
         upvotes: 2,
       }
-    ]);
+    ]).returning();
+
+    for (const replyItem of q1Replies) {
+      await recordReplyActivity(replyItem.discussionId, replyItem.createdAt);
+      await seedUpvotes(replyItem.id, replyItem.upvotes ?? 0, replyItem.authorId);
+    }
 
     // TYPE: Announcement
     await db.insert(discussions).values({
@@ -71,12 +101,17 @@ async function seedDiscussions() {
       lastActivityAt: new Date(),
     }).returning();
 
-    await db.insert(discussionReplies).values({
+    const r1Replies = await db.insert(discussionReplies).values({
       discussionId: r1.id,
       authorId: student.id,
       content: "This is exactly what I needed, thanks Professor!",
       upvotes: 3,
-    });
+    }).returning();
+
+    for (const replyItem of r1Replies) {
+      await recordReplyActivity(replyItem.discussionId, replyItem.createdAt);
+      await seedUpvotes(replyItem.id, replyItem.upvotes ?? 0, replyItem.authorId);
+    }
 
     // TYPE: General
     const [g1] = await db.insert(discussions).values({
@@ -94,13 +129,23 @@ async function seedDiscussions() {
       content: "I'm interested! I've been working with Tailwind for a year now.",
     }).returning();
 
+    if (reply) {
+      await recordReplyActivity(reply.discussionId, reply.createdAt);
+      await seedUpvotes(reply.id, reply.upvotes ?? 0, reply.authorId);
+    }
+
     // Nested reply
-    await db.insert(discussionReplies).values({
+    const [nestedReply] = await db.insert(discussionReplies).values({
       discussionId: g1.id,
       parentId: reply.id,
       authorId: student.id,
       content: "Awesome! Let's meet in the common area after class to discuss.",
-    });
+    }).returning();
+
+    if (nestedReply) {
+      await recordReplyActivity(nestedReply.discussionId, nestedReply.createdAt);
+      await seedUpvotes(nestedReply.id, nestedReply.upvotes ?? 0, nestedReply.authorId);
+    }
   }
 
   console.log("\n🎉 Discussion seeding completed successfully!");

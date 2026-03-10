@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import AgentAPI from "apminsight";
 AgentAPI.config()
 
@@ -41,7 +41,7 @@ app.use(cors({
 
 // CORS debugging middleware
 app.use((req, res, next) => {
-  console.log('🌐 CORS Debug:', {
+  console.log('ðŸŒ CORS Debug:', {
     path: req.path,
     method: req.method,
     origin: req.headers.origin,
@@ -56,35 +56,44 @@ app.use(express.json());
 // Auth routes - mounted before other middleware to skip rate limiting
 app.use('/api/auth', toNodeHandler(auth));
 
-// Debug endpoint to check session
-app.get('/api/debug-session', (req, res) => {
-  console.log('🔍 Debug session request:', {
-    cookie: req.headers.cookie,
-    origin: req.headers.origin
-  });
-  res.json({
-    hasCookie: !!req.headers.cookie,
-    cookie: req.headers.cookie,
-    cookieLength: req.headers.cookie?.length,
-    cookiePreview: req.headers.cookie?.substring(0, 100)
-  });
-});
+const isDevelopment = process.env.NODE_ENV === 'development';
 
-// Debug endpoint to check session with auth middleware
-app.get('/api/debug-auth', authMiddleware, (req: any, res) => {
-  const authReq = req as any;
-  res.json({
-    hasCookie: !!req.headers.cookie,
-    cookiePreview: req.headers.cookie?.substring(0, 100),
-    hasUser: !!authReq.user,
-    user: authReq.user ? {
-      id: authReq.user.id,
-      name: authReq.user.name,
-      email: authReq.user.email,
-      role: authReq.user.role
-    } : null
+if (isDevelopment) {
+  // Debug endpoint to check session (development only)
+  app.get('/api/debug-session', authMiddleware, (req, res) => {
+    console.log('Debug session request:', {
+      hasCookie: !!req.headers.cookie,
+      cookieLength: req.headers.cookie?.length,
+      origin: req.headers.origin
+    });
+    const authReq = req as any;
+    res.json({
+      hasCookie: !!req.headers.cookie,
+      cookieLength: req.headers.cookie?.length,
+      hasUser: !!authReq.user,
+      user: authReq.user ? {
+        id: authReq.user.id,
+        name: authReq.user.name,
+        role: authReq.user.role
+      } : null
+    });
   });
-});
+
+  // Debug endpoint to check session with auth middleware (development only)
+  app.get('/api/debug-auth', authMiddleware, (req: any, res) => {
+    const authReq = req as any;
+    res.json({
+      hasCookie: !!req.headers.cookie,
+      cookieLength: req.headers.cookie?.length,
+      hasUser: !!authReq.user,
+      user: authReq.user ? {
+        id: authReq.user.id,
+        name: authReq.user.name,
+        role: authReq.user.role
+      } : null
+    });
+  });
+}
 
 // Security middleware (rate limiting) - runs FIRST to protect against abuse
 app.use(securityMiddleware);

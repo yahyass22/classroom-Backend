@@ -15,31 +15,31 @@ async function updateSchedules() {
     const result = await sql`
       UPDATE classes SET schedules = CASE 
         -- Monday/Wednesday Morning Slot 1 (08:00-10:00)
-        WHEN id % 8 = 0 THEN '[{"day": "Monday", "startTime": "08:00", "endTime": "10:00"}, {"day": "Wednesday", "startTime": "08:00", "endTime": "10:00"}]'::JSONB
+        WHEN id % 9 = 0 THEN '[{"day": "Monday", "startTime": "08:00", "endTime": "10:00"}, {"day": "Wednesday", "startTime": "08:00", "endTime": "10:00"}]'::JSONB
         
         -- Monday/Wednesday Morning Slot 2 (10:00-12:00)
-        WHEN id % 8 = 1 THEN '[{"day": "Monday", "startTime": "10:00", "endTime": "12:00"}, {"day": "Wednesday", "startTime": "10:00", "endTime": "12:00"}]'::JSONB
+        WHEN id % 9 = 1 THEN '[{"day": "Monday", "startTime": "10:00", "endTime": "12:00"}, {"day": "Wednesday", "startTime": "10:00", "endTime": "12:00"}]'::JSONB
         
         -- Monday/Wednesday Afternoon Slot 1 (13:00-15:00)
-        WHEN id % 8 = 2 THEN '[{"day": "Monday", "startTime": "13:00", "endTime": "15:00"}, {"day": "Wednesday", "startTime": "13:00", "endTime": "15:00"}]'::JSONB
+        WHEN id % 9 = 2 THEN '[{"day": "Monday", "startTime": "13:00", "endTime": "15:00"}, {"day": "Wednesday", "startTime": "13:00", "endTime": "15:00"}]'::JSONB
         
         -- Monday/Wednesday Afternoon Slot 2 (15:00-17:00)
-        WHEN id % 8 = 3 THEN '[{"day": "Monday", "startTime": "15:00", "endTime": "17:00"}, {"day": "Wednesday", "startTime": "15:00", "endTime": "17:00"}]'::JSONB
+        WHEN id % 9 = 3 THEN '[{"day": "Monday", "startTime": "15:00", "endTime": "17:00"}, {"day": "Wednesday", "startTime": "15:00", "endTime": "17:00"}]'::JSONB
         
         -- Tuesday/Thursday Morning Slot 1 (08:00-10:00)
-        WHEN id % 8 = 4 THEN '[{"day": "Tuesday", "startTime": "08:00", "endTime": "10:00"}, {"day": "Thursday", "startTime": "08:00", "endTime": "10:00"}]'::JSONB
+        WHEN id % 9 = 4 THEN '[{"day": "Tuesday", "startTime": "08:00", "endTime": "10:00"}, {"day": "Thursday", "startTime": "08:00", "endTime": "10:00"}]'::JSONB
         
         -- Tuesday/Thursday Morning Slot 2 (10:00-12:00)
-        WHEN id % 8 = 5 THEN '[{"day": "Tuesday", "startTime": "10:00", "endTime": "12:00"}, {"day": "Thursday", "startTime": "10:00", "endTime": "12:00"}]'::JSONB
+        WHEN id % 9 = 5 THEN '[{"day": "Tuesday", "startTime": "10:00", "endTime": "12:00"}, {"day": "Thursday", "startTime": "10:00", "endTime": "12:00"}]'::JSONB
         
         -- Tuesday/Thursday Afternoon Slot 1 (13:00-15:00)
-        WHEN id % 8 = 6 THEN '[{"day": "Tuesday", "startTime": "13:00", "endTime": "15:00"}, {"day": "Thursday", "startTime": "13:00", "endTime": "15:00"}]'::JSONB
+        WHEN id % 9 = 6 THEN '[{"day": "Tuesday", "startTime": "13:00", "endTime": "15:00"}, {"day": "Thursday", "startTime": "13:00", "endTime": "15:00"}]'::JSONB
         
         -- Tuesday/Thursday Afternoon Slot 2 (15:00-17:00)
-        WHEN id % 8 = 7 THEN '[{"day": "Tuesday", "startTime": "15:00", "endTime": "17:00"}, {"day": "Thursday", "startTime": "15:00", "endTime": "17:00"}]'::JSONB
+        WHEN id % 9 = 7 THEN '[{"day": "Tuesday", "startTime": "15:00", "endTime": "17:00"}, {"day": "Thursday", "startTime": "15:00", "endTime": "17:00"}]'::JSONB
         
         -- Friday Special Sessions (2-hour sessions for practical courses)
-        ELSE '[{"day": "Friday", "startTime": "09:00", "endTime": "11:00"}]'::JSONB
+        WHEN id % 9 = 8 THEN '[{"day": "Friday", "startTime": "09:00", "endTime": "11:00"}]'::JSONB
       END;
     `;
 
