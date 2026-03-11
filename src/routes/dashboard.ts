@@ -9,31 +9,47 @@ const router = Router();
 // Get dashboard statistics
 router.get("/stats", async (_req, res) => {
   try {
-    const [
-      totalStudentsResult,
-      totalClassesResult,
-      totalTeachersResult,
-      totalSubjectsResult,
-      totalEnrollmentsResult,
-    ] = await Promise.all([
-      db.select({ count: sql<number>`count(*)` }).from(user).where(eq(user.role, "student")),
-      db.select({ count: sql<number>`count(*)` }).from(classes).where(eq(classes.status, "active")),
-      db.select({ count: sql<number>`count(*)` }).from(teachers),
-      db.select({ count: sql<number>`count(*)` }).from(subjects),
-      db.select({ count: sql<number>`count(*)` }).from(enrollments),
-    ]);
+    console.log('📊 Dashboard /stats - Starting query...');
+    
+    // Run queries separately to avoid iterable issues
+    const [totalStudentsResult] = await db.select({
+      count: sql<number>`count(*)`,
+    }).from(user).where(eq(user.role, 'student'));
+    
+    const [totalClassesResult] = await db.select({
+      count: sql<number>`count(*)`,
+    }).from(classes).where(eq(classes.status, 'active'));
+    
+    const [totalTeachersResult] = await db.select({
+      count: sql<number>`count(*)`,
+    }).from(teachers);
+    
+    const [totalSubjectsResult] = await db.select({
+      count: sql<number>`count(*)`,
+    }).from(subjects);
+    
+    const [totalEnrollmentsResult] = await db.select({
+      count: sql<number>`count(*)`,
+    }).from(enrollments);
 
     const stats = {
-      totalStudents: Number(totalStudentsResult[0]?.count ?? 0),
-      totalClasses: Number(totalClassesResult[0]?.count ?? 0),
-      totalTeachers: Number(totalTeachersResult[0]?.count ?? 0),
-      totalSubjects: Number(totalSubjectsResult[0]?.count ?? 0),
-      totalEnrollments: Number(totalEnrollmentsResult[0]?.count ?? 0),
+      totalStudents: Number(totalStudentsResult?.count ?? 0),
+      totalClasses: Number(totalClassesResult?.count ?? 0),
+      totalTeachers: Number(totalTeachersResult?.count ?? 0),
+      totalSubjects: Number(totalSubjectsResult?.count ?? 0),
+      totalEnrollments: Number(totalEnrollmentsResult?.count ?? 0),
     };
 
+    console.log('📊 Dashboard /stats - Result:', stats);
     res.json(stats);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch stats" });
+    console.error('❌ Dashboard /stats - Error:', error);
+    console.error('Error details:', error instanceof Error ? error.message : error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'N/A');
+    res.status(500).json({ 
+      error: "Failed to fetch stats",
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 

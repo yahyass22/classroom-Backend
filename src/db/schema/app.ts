@@ -90,6 +90,7 @@ export const enrollments = pgTable("enrollments", {
     pk: primaryKey(table.studentId, table.classId),
     idx_enrollments_student: index('idx_enrollments_student').on(table.studentId),
     idx_enrollments_class: index('idx_enrollments_class').on(table.classId),
+    idx_enrollments_student_class: index('idx_enrollments_student_class').on(table.studentId, table.classId),
 }));
 
 export const departmentsRelations = relations(departments, ({ many }) => ({
