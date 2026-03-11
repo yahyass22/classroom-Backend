@@ -46,7 +46,17 @@ router.get('/', async (req , res  ) => {
             .leftJoin(departments, eq(subjects.departmentId, departments.id))
             .where(whereClause);
         const totalCount = Number(countResult[0]?.count ?? 0);
-        const subjectsList= await db.select({...getTableColumns(subjects), department:{...getTableColumns(departments)}
+        const subjectsList = await db.select({
+            id: subjects.id,
+            name: subjects.name,
+            code: subjects.code,
+            description: subjects.description,
+            createdAt: subjects.createdAt,
+            department: {
+                id: departments.id,
+                name: departments.name,
+                code: departments.code
+            }
         }).from(subjects).leftJoin(departments, eq(subjects.departmentId, departments.id))
             .where(whereClause).orderBy(desc(subjects.createdAt))
             .limit(limitperpage)

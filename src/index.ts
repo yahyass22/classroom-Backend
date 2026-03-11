@@ -4,6 +4,7 @@ AgentAPI.config()
 
 
 import express from "express";
+import compression from "compression";
 import subjectsRouter from "./routes/subjects.js";
 import usersRouter from "./routes/users.js";
 import cors from "cors";
@@ -17,6 +18,8 @@ import {auth} from "./lib/auth.js";
 
 const app = express();
 const PORT = 8000;
+
+app.use(compression());
 
 
 if (!process.env.FRONTEND_URL) {

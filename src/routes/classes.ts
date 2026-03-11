@@ -53,9 +53,24 @@ router.get("/", async (req, res) => {
 
         const classesList = await db
             .select({
-                ...getTableColumns(classes),
-                subject: { ...getTableColumns(subjects) },
-                teacher: { ...getTableColumns(user) }
+                id: classes.id,
+                name: classes.name,
+                inviteCode: classes.inviteCode,
+                status: classes.status,
+                capacity: classes.capacity,
+                bannerUrl: classes.bannerUrl,
+                createdAt: classes.createdAt,
+                subject: {
+                    id: subjects.id,
+                    name: subjects.name,
+                    code: subjects.code
+                },
+                teacher: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    image: user.image
+                }
             })
             .from(classes)
             .leftJoin(subjects, eq(classes.subjectId, subjects.id))
@@ -89,15 +104,30 @@ router.get('/:id', async (req, res) => {
 
     const [classDetails] = await db
         .select({
-            ...getTableColumns(classes),
+            id: classes.id,
+            name: classes.name,
+            inviteCode: classes.inviteCode,
+            status: classes.status,
+            capacity: classes.capacity,
+            bannerUrl: classes.bannerUrl,
+            description: classes.description,
+            schedules: classes.schedules,
+            createdAt: classes.createdAt,
             subject: {
-                ...getTableColumns(subjects),
+                id: subjects.id,
+                name: subjects.name,
+                code: subjects.code
             },
             department: {
-                ...getTableColumns(departments),
+                id: departments.id,
+                name: departments.name,
+                code: departments.code
             },
             teacher: {
-                ...getTableColumns(user),
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                image: user.image
             }
         })
         .from(classes)
