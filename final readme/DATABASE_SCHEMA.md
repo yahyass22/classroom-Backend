@@ -1,0 +1,1019 @@
+# 🗄️ Database Schema Documentation
+
+Complete database schema documentation with Entity-Relationship Diagrams (ERD), table descriptions, and relationships.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Entity-Relationship Diagram](#entity-relationship-diagram)
+- [Schema: Auth](#schema-auth)
+- [Schema: Application](#schema-application)
+- [Schema: Discussions](#schema-discussions)
+- [Indexes](#indexes)
+- [Constraints](#constraints)
+- [Data Types](#data-types)
+
+---
+
+## Overview
+
+### Database Statistics
+
+| Metric | Value |
+|--------|-------|
+| **Total Tables** | 14 |
+| **Total Columns** | 80+ |
+| **Foreign Keys** | 15+ |
+| **Indexes** | 25+ |
+| **Enums** | 3 |
+
+### Schema Groups
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Database Schema Groups                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────┐                                           │
+│  │   Auth Schema    │  User authentication & sessions           │
+│  │   (4 tables)     │  • user, session, account, verification   │
+│  └──────────────────┘                                           │
+│                                                                  │
+│  ┌──────────────────┐                                           │
+│  │  Application     │  Core classroom management                │
+│  │   Schema         │  • departments, subjects, teachers,       │
+│  │   (6 tables)     │    teacher_subjects, classes, enrollments │
+│  └──────────────────┘                                           │
+│                                                                  │
+│  ┌──────────────────┐                                           │
+│  │  Discussion      │  Discussion forum system                  │
+│  │   Schema         │  • discussions, discussion_replies,       │
+│  │   (4 tables)     │    discussion_views, discussion_votes     │
+│  └──────────────────┘                                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Entity-Relationship Diagram
+
+### Complete ERD
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                           CLASSROOM DATABASE SCHEMA                                        │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐         ┌──────────────────────┐         ┌──────────────────────┐
+│     departments      │         │      subjects        │         │      teachers        │
+├──────────────────────┤         ├──────────────────────┤         ├──────────────────────┤
+│ PK id (serial)       │◄────┐   │ PK id (serial)       │◄────┐   │ PK id (serial)       │
+│    code (varchar)    │     │   │ FK department_id     │─────┘   │ FK department_id     │
+│    name (varchar)    │     └───│    code (varchar)    │         │    employee_id       │
+│    description       │         │    name (varchar)    │         │    first_name        │
+│    created_at        │         │    description       │         │    last_name         │
+│    updated_at        │         │    created_at        │         │    email             │
+└──────────────────────┘         │    updated_at        │         │    phone             │
+        │                        └──────────────────────┘         │    specialization    │
+        │                                 │                        │    created_at        │
+        │                                 │                        │    updated_at        │
+        │                                 │                        └──────────────────────┘
+        │                                 │                                 │
+        │                                 │                                 │
+        ▼                                 ▼                                 │
+┌──────────────────────┐         ┌──────────────────────┐                  │
+│   teacher_subjects   │         │      classes         │                  │
+├──────────────────────┤         ├──────────────────────┤                  │
+│ PK,FK teacher_id     │─────────│ PK id (serial)       │                  │
+│ PK,FK subject_id     │         │ FK subject_id        │                  │
+│    created_at        │         │ FK teacher_id        │◄─────────────────┘
+│    updated_at        │         │    invite_code       │
+└──────────────────────┘         │    name              │
+        │                        │    banner_cld_pub_id │
+        │                        │    banner_url        │
+        │                        │    description       │
+        │                        │    capacity          │
+        │                        │    status (enum)     │
+        │                        │    schedules (jsonb) │
+        │                        │    created_at        │
+        │                        │    updated_at        │
+        │                        └──────────────────────┘
+        │                                 │
+        │                                 │
+        ▼                                 ▼
+┌──────────────────────┐         ┌──────────────────────┐
+│     enrollments      │         │     discussions      │
+├──────────────────────┤         ├──────────────────────┤
+│ PK,FK student_id     │         │ PK id (serial)       │
+│ PK,FK class_id       │─────────│ FK class_id          │
+│    created_at        │         │ FK author_id         │
+│    updated_at        │         │    title             │
+└──────────────────────┘         │    content           │
+                                 │    type (enum)       │
+                                 │    is_pinned         │
+                                 │    is_locked         │
+                                 │    view_count        │
+                                 │    reply_count       │
+                                 │    last_activity_at  │
+                                 │    created_at        │
+                                 │    updated_at        │
+                                 └──────────────────────┘
+                                          │
+                        ┌─────────────────┼─────────────────┐
+                        │                 │                 │
+                        ▼                 ▼                 ▼
+                                ┌──────────────────────┐
+                                │  discussion_replies  │
+                                ├──────────────────────┤
+                                │ PK id (serial)       │
+                                │ FK discussion_id     │
+                                │ FK parent_id (self)  │
+                                │ FK author_id         │
+                                │    content           │
+                                │    upvotes           │
+                                │    downvotes         │
+                                │    is_accepted       │
+                                │    created_at        │
+                                │    updated_at        │
+                                └──────────────────────┘
+                                         │
+                        ┌────────────────┼────────────────┐
+                        │                │                │
+                        ▼                ▼                ▼
+                            ┌──────────────────────┐
+                            │  discussion_views    │
+                            ├──────────────────────┤
+                            │ PK,FK discussion_id  │
+                            │ PK,FK user_id        │
+                            │    viewed_at         │
+                            └──────────────────────┘
+
+                            ┌──────────────────────┐
+                            │  discussion_votes    │
+                            ├──────────────────────┤
+                            │ PK,FK reply_id       │
+                            │ PK,FK user_id        │
+                            │    vote_type         │
+                            │    created_at        │
+                            └──────────────────────┘
+
+
+┌──────────────────────┐
+│        user          │  (Auth Schema - Better Auth)
+├──────────────────────┤
+│ PK id (text)         │
+│    name (text)       │
+│    email (text)      │
+│    email_verified    │
+│    image (text)      │
+│    role (enum)       │
+│    image_cld_pub_id  │
+│    created_at        │
+│    updated_at        │
+└──────────────────────┘
+        ▲
+        │
+        │ (Referenced by: sessions, accounts, enrollments,
+        │  classes.teacher_id, discussions.author_id,
+        │  discussion_replies.author_id, discussion_views.user_id,
+        │  discussion_votes.user_id)
+        │
+┌──────────────────────┐
+│      session         │
+├──────────────────────┤
+│ PK id (text)         │
+│    expires_at        │
+│    token (unique)    │
+│    created_at        │
+│    updated_at        │
+│    ip_address        │
+│    user_agent        │
+│ FK user_id           │
+└──────────────────────┘
+
+┌──────────────────────┐
+│      account         │
+├──────────────────────┤
+│ PK id (text)         │
+│    account_id        │
+│    provider_id       │
+│ FK user_id           │
+│    access_token      │
+│    refresh_token     │
+│    ... (tokens)      │
+│    created_at        │
+│    updated_at        │
+└──────────────────────┘
+
+┌──────────────────────┐
+│    verification      │
+├──────────────────────┤
+│ PK id (text)         │
+│    identifier        │
+│    value             │
+│    expires_at        │
+│    created_at        │
+│    updated_at        │
+└──────────────────────┘
+```
+
+### Relationship Legend
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Relationship Types                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ─────►  : One-to-Many (FK points to PK)                        │
+│  ◄────►  : Many-to-Many (junction table)                        │
+│  PK      : Primary Key                                          │
+│  FK      : Foreign Key                                          │
+│  (self)  : Self-referencing (e.g., parent reply)                │
+│                                                                  │
+│  CASCADE DELETE    : Child records deleted when parent deleted  │
+│  RESTRICT DELETE   : Parent cannot be deleted if children exist │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Schema: Auth
+
+### Table: `user`
+
+User accounts managed by Better-Auth.
+
+```sql
+CREATE TABLE "user" (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    email           TEXT NOT NULL UNIQUE,
+    email_verified  BOOLEAN NOT NULL,
+    image           TEXT,
+    role            role_enum DEFAULT 'student' NOT NULL,
+    image_cld_pub_id TEXT,
+    created_at      TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at      TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | TEXT | PRIMARY KEY | Unique user ID (generated by Better-Auth) |
+| `name` | TEXT | NOT NULL | User's full name |
+| `email` | TEXT | NOT NULL, UNIQUE | User's email address |
+| `email_verified` | BOOLEAN | NOT NULL | Email verification status |
+| `image` | TEXT | | Profile image URL |
+| `role` | role_enum | DEFAULT 'student' | User role (student/teacher/admin) |
+| `image_cld_pub_id` | TEXT | | Cloudinary public ID for image |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Account creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- Unique on `email`
+
+**Referenced By:**
+- `session.user_id` (CASCADE DELETE)
+- `account.user_id` (CASCADE DELETE)
+- `classes.teacher_id` (RESTRICT DELETE)
+- `enrollments.student_id` (CASCADE DELETE)
+- `discussions.author_id` (CASCADE DELETE)
+- `discussion_replies.author_id` (CASCADE DELETE)
+- `discussion_views.user_id` (CASCADE DELETE)
+- `discussion_votes.user_id` (CASCADE DELETE)
+
+---
+
+### Table: `session`
+
+Active user sessions.
+
+```sql
+CREATE TABLE "session" (
+    id          TEXT PRIMARY KEY,
+    expires_at  TIMESTAMP NOT NULL,
+    token       TEXT NOT NULL UNIQUE,
+    created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    ip_address  TEXT,
+    user_agent  TEXT,
+    user_id     TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | TEXT | PRIMARY KEY | Session ID |
+| `expires_at` | TIMESTAMP | NOT NULL | Session expiration timestamp |
+| `token` | TEXT | NOT NULL, UNIQUE | Session token (stored in cookie) |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Session creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+| `ip_address` | TEXT | | IP address at session creation |
+| `user_agent` | TEXT | | User agent string at session creation |
+| `user_id` | TEXT | NOT NULL, FK | Reference to user |
+
+**Indexes:**
+- Primary key on `id`
+- Unique on `token`
+- `session_user_id_idx` on `user_id`
+
+**Relations:**
+- References `user.id` (CASCADE DELETE)
+
+---
+
+### Table: `account`
+
+OAuth provider accounts linked to users.
+
+```sql
+CREATE TABLE "account" (
+    id                     TEXT PRIMARY KEY,
+    account_id             TEXT NOT NULL,
+    provider_id            TEXT NOT NULL,
+    user_id                TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    access_token           TEXT,
+    refresh_token          TEXT,
+    id_token               TEXT,
+    access_token_expires_at TIMESTAMP,
+    refresh_token_expires_at TIMESTAMP,
+    scope                  TEXT,
+    password               TEXT,
+    created_at             TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at             TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | TEXT | PRIMARY KEY | Account ID |
+| `account_id` | TEXT | NOT NULL | Provider account ID |
+| `provider_id` | TEXT | NOT NULL | Provider name (e.g., "google") |
+| `user_id` | TEXT | NOT NULL, FK | Reference to user |
+| `access_token` | TEXT | | OAuth access token |
+| `refresh_token` | TEXT | | OAuth refresh token |
+| `id_token` | TEXT | | OAuth ID token |
+| `access_token_expires_at` | TIMESTAMP | | Access token expiry |
+| `refresh_token_expires_at` | TIMESTAMP | | Refresh token expiry |
+| `scope` | TEXT | | OAuth scopes granted |
+| `password` | TEXT | | Hashed password (for email/password auth) |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Account link timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `account_user_id_idx` on `user_id`
+
+**Relations:**
+- References `user.id` (CASCADE DELETE)
+
+---
+
+### Table: `verification`
+
+Email verification tokens.
+
+```sql
+CREATE TABLE "verification" (
+    id          TEXT PRIMARY KEY,
+    identifier  TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    expires_at  TIMESTAMP NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at  TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | TEXT | PRIMARY KEY | Verification ID |
+| `identifier` | TEXT | NOT NULL | Verification type identifier |
+| `value` | TEXT | NOT NULL | Verification token value |
+| `expires_at` | TIMESTAMP | NOT NULL | Token expiration timestamp |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `verification_identifier_idx` on `identifier`
+
+---
+
+### Enum: `role`
+
+User roles in the system.
+
+```sql
+CREATE TYPE "role" AS ENUM ('student', 'teacher', 'admin');
+```
+
+| Value | Description |
+|-------|-------------|
+| `student` | Student user (default) |
+| `teacher` | Teacher/faculty user |
+| `admin` | Administrator user |
+
+---
+
+## Schema: Application
+
+### Table: `departments`
+
+Academic departments.
+
+```sql
+CREATE TABLE "departments" (
+    id          INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    code        VARCHAR(50) NOT NULL UNIQUE,
+    name        VARCHAR(255) NOT NULL,
+    description VARCHAR(255),
+    created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at  TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, IDENTITY | Department ID (auto-increment) |
+| `code` | VARCHAR(50) | NOT NULL, UNIQUE | Department code (e.g., "CS", "MATH") |
+| `name` | VARCHAR(255) | NOT NULL | Department name |
+| `description` | VARCHAR(255) | | Department description |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- Unique on `code`
+- `idx_departments_code` on `code`
+
+**Relations:**
+- Referenced by `subjects.department_id` (RESTRICT DELETE)
+- Referenced by `teachers.department_id` (RESTRICT DELETE)
+
+---
+
+### Table: `subjects`
+
+Course subjects offered by departments.
+
+```sql
+CREATE TABLE "subjects" (
+    id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    code          VARCHAR(50) NOT NULL UNIQUE,
+    name          VARCHAR(255) NOT NULL,
+    description   VARCHAR(255),
+    created_at    TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at    TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, IDENTITY | Subject ID (auto-increment) |
+| `department_id` | INTEGER | NOT NULL, FK | Reference to department |
+| `code` | VARCHAR(50) | NOT NULL, UNIQUE | Subject code (e.g., "CS101") |
+| `name` | VARCHAR(255) | NOT NULL | Subject name |
+| `description` | VARCHAR(255) | | Subject description |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- Unique on `code`
+- `idx_subjects_department` on `department_id`
+- `idx_subjects_department_code` on `department_id, code`
+
+**Relations:**
+- References `departments.id` (RESTRICT DELETE)
+- Referenced by `teacher_subjects.subject_id` (CASCADE DELETE)
+- Referenced by `classes.subject_id` (CASCADE DELETE)
+
+---
+
+### Table: `teachers`
+
+Teacher/faculty profiles.
+
+```sql
+CREATE TABLE "teachers" (
+    id             INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    department_id  INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    employee_id    VARCHAR(50) NOT NULL UNIQUE,
+    first_name     VARCHAR(100) NOT NULL,
+    last_name      VARCHAR(100) NOT NULL,
+    email          VARCHAR(255) NOT NULL UNIQUE,
+    phone          VARCHAR(20),
+    specialization VARCHAR(255),
+    created_at     TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at     TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, IDENTITY | Teacher ID (auto-increment) |
+| `department_id` | INTEGER | NOT NULL, FK | Reference to department |
+| `employee_id` | VARCHAR(50) | NOT NULL, UNIQUE | Employee ID number |
+| `first_name` | VARCHAR(100) | NOT NULL | First name |
+| `last_name` | VARCHAR(100) | NOT NULL | Last name |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE | Work email |
+| `phone` | VARCHAR(20) | | Phone number |
+| `specialization` | VARCHAR(255) | | Area of specialization |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- Unique on `employee_id`
+- Unique on `email`
+- `idx_teachers_department` on `department_id`
+- `idx_teachers_email` on `email`
+- `idx_teachers_employee_id` on `employee_id`
+- `idx_teachers_department_email` on `department_id, email`
+
+**Relations:**
+- References `departments.id` (RESTRICT DELETE)
+- Referenced by `teacher_subjects.teacher_id` (CASCADE DELETE)
+
+---
+
+### Table: `teacher_subjects`
+
+Junction table linking teachers to subjects they teach.
+
+```sql
+CREATE TABLE "teacher_subjects" (
+    teacher_id  INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    subject_id  INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    PRIMARY KEY (teacher_id, subject_id)
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `teacher_id` | INTEGER | NOT NULL, FK, PK | Reference to teacher |
+| `subject_id` | INTEGER | NOT NULL, FK, PK | Reference to subject |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Assignment timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Composite primary key on `teacher_id, subject_id`
+- `idx_teacher_subjects_teacher` on `teacher_id`
+- `idx_teacher_subjects_subject` on `subject_id`
+
+**Relations:**
+- References `teachers.id` (CASCADE DELETE)
+- References `subjects.id` (CASCADE DELETE)
+
+---
+
+### Table: `classes`
+
+Class sections offered for subjects.
+
+```sql
+CREATE TABLE "classes" (
+    id               INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    subject_id       INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    teacher_id       TEXT NOT NULL REFERENCES "user"(id) ON DELETE RESTRICT,
+    invite_code      VARCHAR(50) NOT NULL UNIQUE,
+    name             VARCHAR(255) NOT NULL,
+    banner_cld_pub_id TEXT,
+    banner_url       TEXT,
+    description      TEXT,
+    capacity         INTEGER NOT NULL DEFAULT 50,
+    status           class_status_enum DEFAULT 'active' NOT NULL,
+    schedules        JSONB,
+    created_at       TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at       TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, IDENTITY | Class ID (auto-increment) |
+| `subject_id` | INTEGER | NOT NULL, FK | Reference to subject |
+| `teacher_id` | TEXT | NOT NULL, FK | Reference to user (teacher) |
+| `invite_code` | VARCHAR(50) | NOT NULL, UNIQUE | Unique invite code for enrollment |
+| `name` | VARCHAR(255) | NOT NULL | Class name/section |
+| `banner_cld_pub_id` | TEXT | | Cloudinary public ID for banner |
+| `banner_url` | TEXT | | Banner image URL |
+| `description` | TEXT | | Class description |
+| `capacity` | INTEGER | DEFAULT 50 | Maximum enrollment capacity |
+| `status` | class_status_enum | DEFAULT 'active' | Class status |
+| `schedules` | JSONB | | Array of schedule objects |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Schedule JSONB Structure:**
+```json
+[
+  {
+    "day": "Monday",
+    "startTime": "09:00",
+    "endTime": "10:30"
+  },
+  {
+    "day": "Wednesday",
+    "startTime": "09:00",
+    "endTime": "10:30"
+  }
+]
+```
+
+**Indexes:**
+- Primary key on `id`
+- Unique on `invite_code`
+- `idx_classes_subject` on `subject_id`
+- `idx_classes_teacher` on `teacher_id`
+
+**Relations:**
+- References `subjects.id` (CASCADE DELETE)
+- References `user.id` (RESTRICT DELETE)
+- Referenced by `enrollments.class_id` (CASCADE DELETE)
+- Referenced by `discussions.class_id` (CASCADE DELETE)
+
+---
+
+### Enum: `class_status`
+
+Class status values.
+
+```sql
+CREATE TYPE "class_status" AS ENUM ('active', 'inactive', 'archived');
+```
+
+| Value | Description |
+|-------|-------------|
+| `active` | Currently running class |
+| `inactive` | Temporarily inactive class |
+| `archived` | Completed/archived class |
+
+---
+
+### Table: `enrollments`
+
+Student enrollments in classes.
+
+```sql
+CREATE TABLE "enrollments" (
+    student_id  TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    class_id    INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    PRIMARY KEY (student_id, class_id)
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `student_id` | TEXT | NOT NULL, FK, PK | Reference to user (student) |
+| `class_id` | INTEGER | NOT NULL, FK, PK | Reference to class |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Enrollment timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Composite primary key on `student_id, class_id`
+- `idx_enrollments_student` on `student_id`
+- `idx_enrollments_class` on `class_id`
+- `idx_enrollments_student_class` on `student_id, class_id`
+
+**Relations:**
+- References `user.id` (CASCADE DELETE)
+- References `classes.id` (CASCADE DELETE)
+
+---
+
+## Schema: Discussions
+
+### Table: `discussions`
+
+Discussion threads in classes.
+
+```sql
+CREATE TABLE "discussions" (
+    id               INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    class_id         INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    author_id        TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    title            VARCHAR(500) NOT NULL,
+    content          TEXT NOT NULL,
+    type             discussion_type_enum NOT NULL DEFAULT 'general',
+    is_pinned        BOOLEAN DEFAULT FALSE NOT NULL,
+    is_locked        BOOLEAN DEFAULT FALSE NOT NULL,
+    view_count       INTEGER DEFAULT 0 NOT NULL,
+    reply_count      INTEGER DEFAULT 0 NOT NULL,
+    last_activity_at TIMESTAMP DEFAULT NOW(),
+    created_at       TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at       TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, IDENTITY | Discussion ID (auto-increment) |
+| `class_id` | INTEGER | NOT NULL, FK | Reference to class |
+| `author_id` | TEXT | NOT NULL, FK | Reference to user (author) |
+| `title` | VARCHAR(500) | NOT NULL | Discussion title |
+| `content` | TEXT | NOT NULL | Discussion content (markdown) |
+| `type` | discussion_type_enum | DEFAULT 'general' | Discussion type |
+| `is_pinned` | BOOLEAN | DEFAULT FALSE | Pinned to top |
+| `is_locked` | BOOLEAN | DEFAULT FALSE | Locked (no new replies) |
+| `view_count` | INTEGER | DEFAULT 0 | Total view count |
+| `reply_count` | INTEGER | DEFAULT 0 | Total reply count |
+| `last_activity_at` | TIMESTAMP | DEFAULT NOW() | Last activity timestamp |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_discussions_class` on `class_id`
+- `idx_discussions_author` on `author_id`
+- `idx_discussions_type` on `type`
+- `idx_discussions_pinned` on `is_pinned`
+- `idx_discussions_last_activity` on `last_activity_at`
+
+**Relations:**
+- References `classes.id` (CASCADE DELETE)
+- References `user.id` (CASCADE DELETE)
+- Referenced by `discussion_replies.discussion_id` (CASCADE DELETE)
+- Referenced by `discussion_views.discussion_id` (CASCADE DELETE)
+- Referenced by `discussion_votes.reply_id` (indirectly)
+
+---
+
+### Enum: `discussion_type`
+
+Discussion thread types.
+
+```sql
+CREATE TYPE "discussion_type" AS ENUM ('general', 'question', 'announcement', 'resource');
+```
+
+| Value | Color | Description |
+|-------|-------|-------------|
+| `general` | Gray | Open discussion |
+| `question` | Amber | Help/question thread |
+| `announcement` | Blue | Important announcements |
+| `resource` | Green | Resource sharing |
+
+---
+
+### Table: `discussion_replies`
+
+Replies to discussions (supports nested replies).
+
+```sql
+CREATE TABLE "discussion_replies" (
+    id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    discussion_id INTEGER NOT NULL REFERENCES discussions(id) ON DELETE CASCADE,
+    parent_id     INTEGER REFERENCES discussion_replies(id) ON DELETE CASCADE,
+    author_id     TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    content       TEXT NOT NULL,
+    upvotes       INTEGER DEFAULT 0 NOT NULL,
+    downvotes     INTEGER DEFAULT 0 NOT NULL,
+    is_accepted   BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at    TIMESTAMP DEFAULT NOW() NOT NULL,
+    updated_at    TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, IDENTITY | Reply ID (auto-increment) |
+| `discussion_id` | INTEGER | NOT NULL, FK | Reference to discussion |
+| `parent_id` | INTEGER | FK (self) | Parent reply ID (for nested replies) |
+| `author_id` | TEXT | NOT NULL, FK | Reference to user (author) |
+| `content` | TEXT | NOT NULL | Reply content (markdown) |
+| `upvotes` | INTEGER | DEFAULT 0 | Upvote count |
+| `downvotes` | INTEGER | DEFAULT 0 | Downvote count |
+| `is_accepted` | BOOLEAN | DEFAULT FALSE | Accepted answer (for questions) |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_replies_discussion` on `discussion_id`
+- `idx_replies_author` on `author_id`
+- `idx_replies_parent` on `parent_id`
+- `idx_replies_accepted` on `is_accepted`
+
+**Relations:**
+- References `discussions.id` (CASCADE DELETE)
+- References `discussion_replies.id` (CASCADE DELETE, self-referencing)
+- References `user.id` (CASCADE DELETE)
+
+---
+
+### Table: `discussion_views`
+
+Tracks unique user views of discussions.
+
+```sql
+CREATE TABLE "discussion_views" (
+    discussion_id  INTEGER NOT NULL REFERENCES discussions(id) ON DELETE CASCADE,
+    user_id        TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    viewed_at      TIMESTAMP DEFAULT NOW() NOT NULL,
+    PRIMARY KEY (discussion_id, user_id)
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `discussion_id` | INTEGER | NOT NULL, FK, PK | Reference to discussion |
+| `user_id` | TEXT | NOT NULL, FK, PK | Reference to user |
+| `viewed_at` | TIMESTAMP | DEFAULT NOW() | View timestamp |
+
+**Indexes:**
+- Composite primary key on `discussion_id, user_id`
+- `idx_views_user` on `user_id`
+
+**Relations:**
+- References `discussions.id` (CASCADE DELETE)
+- References `user.id` (CASCADE DELETE)
+
+**Purpose:** Prevents double-counting views from the same user.
+
+---
+
+### Table: `discussion_votes`
+
+User votes on discussion replies.
+
+```sql
+CREATE TABLE "discussion_votes" (
+    reply_id    INTEGER NOT NULL REFERENCES discussion_replies(id) ON DELETE CASCADE,
+    user_id     TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    vote_type   VARCHAR(10) NOT NULL CHECK (vote_type IN ('up', 'down')),
+    created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+    PRIMARY KEY (reply_id, user_id)
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `reply_id` | INTEGER | NOT NULL, FK, PK | Reference to reply |
+| `user_id` | TEXT | NOT NULL, FK, PK | Reference to user |
+| `vote_type` | VARCHAR(10) | NOT NULL, CHECK | Vote type ('up' or 'down') |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Vote timestamp |
+
+**Indexes:**
+- Composite primary key on `reply_id, user_id`
+- `idx_votes_user` on `user_id`
+
+**Relations:**
+- References `discussion_replies.id` (CASCADE DELETE)
+- References `user.id` (CASCADE DELETE)
+
+**Purpose:** Tracks individual user votes to prevent duplicate voting.
+
+---
+
+## Indexes
+
+### Complete Index List
+
+| Table | Index Name | Columns | Purpose |
+|-------|-----------|---------|---------|
+| **departments** | `idx_departments_code` | `code` | Fast department code lookup |
+| **departments** | `departments_code_unique` | `code` | Unique constraint |
+| **subjects** | `idx_subjects_department` | `department_id` | Filter by department |
+| **subjects** | `idx_subjects_department_code` | `department_id, code` | Composite lookup |
+| **subjects** | `subjects_code_unique` | `code` | Unique constraint |
+| **teachers** | `idx_teachers_department` | `department_id` | Filter by department |
+| **teachers** | `idx_teachers_email` | `email` | Email lookup |
+| **teachers** | `idx_teachers_employee_id` | `employee_id` | Employee ID lookup |
+| **teachers** | `idx_teachers_department_email` | `department_id, email` | Composite lookup |
+| **teachers** | `teachers_employee_id_unique` | `employee_id` | Unique constraint |
+| **teachers** | `teachers_email_unique` | `email` | Unique constraint |
+| **classes** | `idx_classes_subject` | `subject_id` | Filter by subject |
+| **classes** | `idx_classes_teacher` | `teacher_id` | Filter by teacher |
+| **classes** | `classes_invite_code_unique` | `invite_code` | Unique constraint |
+| **enrollments** | `idx_enrollments_student` | `student_id` | Student's enrollments |
+| **enrollments** | `idx_enrollments_class` | `class_id` | Class enrollments |
+| **enrollments** | `idx_enrollments_student_class` | `student_id, class_id` | Composite lookup |
+| **discussions** | `idx_discussions_class` | `class_id` | Class discussions |
+| **discussions** | `idx_discussions_author` | `author_id` | User's discussions |
+| **discussions** | `idx_discussions_type` | `type` | Filter by type |
+| **discussions** | `idx_discussions_pinned` | `is_pinned` | Find pinned discussions |
+| **discussions** | `idx_discussions_last_activity` | `last_activity_at` | Sort by activity |
+| **discussion_replies** | `idx_replies_discussion` | `discussion_id` | Discussion replies |
+| **discussion_replies** | `idx_replies_author` | `author_id` | User's replies |
+| **discussion_replies** | `idx_replies_parent` | `parent_id` | Nested replies |
+| **discussion_replies** | `idx_replies_accepted` | `is_accepted` | Find accepted answers |
+| **discussion_views** | `idx_views_user` | `user_id` | User's views |
+| **discussion_votes** | `idx_votes_user` | `user_id` | User's votes |
+| **session** | `session_user_id_idx` | `user_id` | User's sessions |
+| **session** | `session_token_unique` | `token` | Unique constraint |
+| **account** | `account_user_id_idx` | `user_id` | User's accounts |
+| **verification** | `verification_identifier_idx` | `identifier` | Verification lookup |
+
+---
+
+## Constraints
+
+### Foreign Key Constraints
+
+| Child Table | Child Column | Parent Table | Parent Column | On Delete | On Update |
+|-------------|-------------|--------------|---------------|-----------|-----------|
+| subjects | department_id | departments | id | RESTRICT | NO ACTION |
+| teachers | department_id | departments | id | RESTRICT | NO ACTION |
+| teacher_subjects | teacher_id | teachers | id | CASCADE | NO ACTION |
+| teacher_subjects | subject_id | subjects | id | CASCADE | NO ACTION |
+| classes | subject_id | subjects | id | CASCADE | NO ACTION |
+| classes | teacher_id | user | id | RESTRICT | NO ACTION |
+| enrollments | student_id | user | id | CASCADE | NO ACTION |
+| enrollments | class_id | classes | id | CASCADE | NO ACTION |
+| discussions | class_id | classes | id | CASCADE | NO ACTION |
+| discussions | author_id | user | id | CASCADE | NO ACTION |
+| discussion_replies | discussion_id | discussions | id | CASCADE | NO ACTION |
+| discussion_replies | parent_id | discussion_replies | id | CASCADE | NO ACTION |
+| discussion_replies | author_id | user | id | CASCADE | NO ACTION |
+| discussion_views | discussion_id | discussions | id | CASCADE | NO ACTION |
+| discussion_views | user_id | user | id | CASCADE | NO ACTION |
+| discussion_votes | reply_id | discussion_replies | id | CASCADE | NO ACTION |
+| discussion_votes | user_id | user | id | CASCADE | NO ACTION |
+| session | user_id | user | id | CASCADE | NO ACTION |
+| account | user_id | user | id | CASCADE | NO ACTION |
+
+### Check Constraints
+
+| Table | Column | Constraint |
+|-------|--------|------------|
+| discussion_votes | vote_type | `vote_type IN ('up', 'down')` |
+
+---
+
+## Data Types
+
+### Custom Types
+
+#### JSONB: `schedules`
+
+Used in `classes.schedules` to store class schedules.
+
+```typescript
+interface Schedule {
+  day: string;        // e.g., "Monday", "Tuesday"
+  startTime: string;  // e.g., "09:00", "14:30"
+  endTime: string;    // e.g., "10:30", "16:00"
+}
+
+// Example:
+[
+  { day: "Monday", startTime: "09:00", endTime: "10:30" },
+  { day: "Wednesday", startTime: "09:00", endTime: "10:30" },
+  { day: "Friday", startTime: "09:00", endTime: "10:30" }
+]
+```
+
+#### Enum: `role`
+
+```sql
+CREATE TYPE "role" AS ENUM ('student', 'teacher', 'admin');
+```
+
+#### Enum: `class_status`
+
+```sql
+CREATE TYPE "class_status" AS ENUM ('active', 'inactive', 'archived');
+```
+
+#### Enum: `discussion_type`
+
+```sql
+CREATE TYPE "discussion_type" AS ENUM ('general', 'question', 'announcement', 'resource');
+```
+
+### Standard Types Used
+
+| Type | Usage |
+|------|-------|
+| `TEXT` | Variable-length text (unlimited) |
+| `VARCHAR(n)` | Variable-length text (max n chars) |
+| `INTEGER` | 4-byte integer |
+| `BOOLEAN` | True/false |
+| `TIMESTAMP` | Date and time |
+| `JSONB` | Binary JSON |
+| `SERIAL` (via IDENTITY) | Auto-incrementing integer |
+
+---
+
+## Migration History
+
+### Migration Files
+
+| File | Description | Tables Created |
+|------|-------------|----------------|
+| `0000_same_multiple_man.sql` | Initial schema | All core tables + auth |
+| `0001_create_discussions_tables.sql` | Discussion forum | discussions, replies, views, votes |
+
+---
+
+**Last Updated:** March 2026  
+**Schema Version:** 1.0.0
