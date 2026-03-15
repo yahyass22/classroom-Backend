@@ -33,7 +33,7 @@ The Classroom Backend API is a RESTful API built with Express.js and TypeScript.
 
 ```
 Development: http://localhost:8000
-Production:  [https://your-domain.com](https://classroom-front-end-blush.vercel.app/login)
+Production:  https://classroom-front-end-blush.vercel.app/login
 ```
 
 All endpoints are prefixed with `/api`.
