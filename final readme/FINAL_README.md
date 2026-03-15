@@ -36,7 +36,7 @@ Welcome to the definitive guide for the **Classroom Backend API**. This project 
 
 Our architecture is built on a **Middleware-First** philosophy, ensuring every request is sanitized, authenticated, and rate-limited before reaching the business logic.
 
-![System Component Architecture](system_design.png)
+![System Component Architecture](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/system%20component%20architecture.png)
 
 ### The Stack:
 - **Language:** TypeScript 5.9 (Strict Mode)
@@ -51,7 +51,7 @@ Our architecture is built on a **Middleware-First** philosophy, ensuring every r
 
 The schema is architected into three logical domains to ensure data integrity and query performance.
 
-![Entity Relationship Diagram](database_schema.png)
+![Entity Relationship Diagram](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/db%20schema%202.png)
 
 1.  **Auth Domain:** Handles user identity, OAuth accounts, and secure sessions.
 2.  **App Domain:** The academic core managing the relationship between teachers, students, and classes.
@@ -84,7 +84,7 @@ The API follows RESTful principles with standardized JSON responses and integrat
 ### Authentication Flow
 The system uses a highly secure **Cookie-based Session** strategy.
 
-![Authentication Flow](auth_flow.png)
+![Authentication Flow](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/session%20authentication%20flow.png)
 
 - **CORS Protection:** Requests are validated against a whitelist of trusted origins.
 - **Rate Limiting:** Sliding window limits based on user role (Admin: 20/min, User: 10/min).
@@ -96,7 +96,7 @@ The system uses a highly secure **Cookie-based Session** strategy.
 
 The system is optimized for serverless and edge deployment.
 
-![Deployment Architecture](deployment.png)
+![Deployment Architecture](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/deploy.png)
 
 - **Database:** Neon PostgreSQL (Serverless with connection pooling).
 - **Hosting:** Optimized for Vercel, Railway, or Render.
