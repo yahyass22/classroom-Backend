@@ -75,7 +75,7 @@ Our architecture is built on a **Middleware-First** philosophy, ensuring every r
 
 ![System Component Architecture](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/system%20component%20architecture.png)
 
-
+*Full Architecture details can be found in the [System Design Documentation](./SYSTEM_DESIGN.md).*
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -454,8 +454,7 @@ For detailed deployment guide, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 - [Database Schema](./docs/DATABASE_SCHEMA.md) - Complete ERD and table descriptions
 - [API Documentation](./docs/API_DOCUMENTATION.md) - All endpoints with examples
 - [Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment instructions
-- [Authentication Debug Guide](./AUTH_DEBUG_GUIDE.md) - Auth troubleshooting
-- [Discussion Forum Guide](./DISCUSSION_FORUM_GUIDE.md) - Forum features
+
 
 ## 🤝 Contributing
 
