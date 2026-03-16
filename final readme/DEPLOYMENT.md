@@ -19,6 +19,14 @@ Complete guide for deploying the Classroom Backend API to production.
 
 ---
 
+## 🚀 Deployment
+
+The system is optimized for serverless and edge deployment.
+
+![Deployment Architecture](https://github.com/yahyass22/classroom-Backend/blob/d7b3c795d2d2fbc7fa630023cafac2ecf33a5407/final%20readme/Diagrams%20PNG/Deployment%20Architecture%20mermaid.png)
+
+
+
 ## Prerequisites
 
 Before deploying, ensure you have:
