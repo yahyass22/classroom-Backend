@@ -1,6 +1,6 @@
-# 🎓 Classroom Backend API
+# 🎓 Academic Management System - Documentation
 
-A comprehensive, production-ready backend API for classroom management, built with modern TypeScript, Express.js, and PostgreSQL.
+Welcome to the definitive guide for the Classroom Backend API. This project is a production-grade infrastructure designed to manage academic environments with high efficiency, security, and data-driven insights.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)](https://expressjs.com/)
@@ -54,6 +54,9 @@ A comprehensive, production-ready backend API for classroom management, built wi
 - ⚠️ At-risk resource detection
 - 👨‍🏫 Top teachers ranking
 - 📉 User signup trends
+
+![Overview Features](https://github.com/yahyass22/classroom-Backend/blob/e3cf2b244ff9043fdc30f65c3d4cfd1daf35b626/final%20readme/Diagrams%20PNG/features%20overview%20memaid.png)
+
 
 ## 🛠️ Tech Stack
 
@@ -124,6 +127,7 @@ Server will start on `http://localhost:8000`
 ## 📡 API Endpoints
 
 The Classroom Backend API is a RESTful API built with Express.js and TypeScript. It provides endpoints for managing classes, users, discussions, and dashboard analytics.
+
 ![CLASSROOM API endpoint map](https://github.com/yahyass22/classroom-Backend/blob/a69f35a548ed314224056ba13a057106e526693b/final%20readme/Diagrams%20PNG/CLASSROOM%20API%20endpoint%20map.png)
 
 ### Authentication
@@ -375,7 +379,7 @@ The system is optimized for serverless and edge deployment.
 - **Hosting:** Optimized for Vercel, Railway, or Render.
 - **Security:** Arcjet LIVE mode enforced in production.
 
-*Full Architecture details can be found in the [System Design Documentation](./DEPLOYMENT.md).*
+*Full Architecture details can be found in the [Deployment Documentation](./DEPLOYMENT.md).*
 
 ---
 
@@ -401,7 +405,6 @@ PORT=<assigned by platform>
 - **Fly.io**: Global deployment
 - **Neon**: Database (already configured)
 
-For detailed deployment guide, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 
 ## 📚 Documentation
 
