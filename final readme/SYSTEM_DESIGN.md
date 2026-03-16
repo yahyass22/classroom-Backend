@@ -21,9 +21,13 @@ Comprehensive system architecture and design documentation for the Classroom Bac
 
 ### High-Level Architecture
 
-![System Overview](https://github.com/yahyass22/classroom-Backend/blob/2eb5b0420aa71e0d19ded55ed2502621ce8df7e5/final%20readme/Diagrams%20PNG/project%20overviw%20diagram.png)
+![Authentication Flow](https://github.com/yahyass22/classroom-Backend/blob/2eb5b0420aa71e0d19ded55ed2502621ce8df7e5/final%20readme/Diagrams%20PNG/project%20overviw%20diagram.png)
 
 ## Architecture Diagrams
+
+Our architecture is built on a **Middleware-First** philosophy, ensuring every request is sanitized, authenticated, and rate-limited before reaching the business logic.
+
+![System Component Architecture](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/system%20component%20architecture.png)
 
 ### 1. Request-Response Flow
 
