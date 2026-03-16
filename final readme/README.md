@@ -188,53 +188,6 @@ The schema is architected into three logical domains to ensure data integrity an
 
 ### Core Entities
 
-```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│   departments   │       │    subjects     │       │    teachers     │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK)         │───┐   │ id (PK)         │───┐   │ id (PK)         │
-│ code            │   │   │ department_id   │◄──┘   │ department_id   │
-│ name            │   └──►│ code            │   └──►│ employee_id     │
-│ description     │       │ name            │       │ first_name      │
-└─────────────────┘       │ description     │       │ last_name       │
-                          └─────────────────┘       │ email           │
-                                  │                 └─────────────────┘
-                                  │
-                          ┌─────────────────┐
-                          │  teacher_subjects│
-                          ├─────────────────┤
-                          │ teacher_id (PK) │
-                          │ subject_id (PK) │
-                          └─────────────────┘
-
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│     classes     │       │   enrollments   │       │      user       │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK)         │───┐   │ student_id (PK) │───┐   │ id (PK)         │
-│ subject_id      │◄──┘   │ class_id (PK)   │◄──┘   │ name            │
-│ teacher_id      │───┐   │ created_at      │       │ email           │
-│ invite_code     │   │   │ updated_at      │       │ role            │
-│ name            │   │   └─────────────────┘       │ image           │
-│ capacity        │   │                             └─────────────────┘
-│ status          │   │
-│ schedules (JSON)│   │
-└─────────────────┘   │
-                      │
-┌─────────────────┐   │
-│   discussions   │◄──┘
-├─────────────────┤
-│ id (PK)         │
-│ class_id        │
-│ author_id       │
-│ title           │
-│ content         │
-│ type            │
-│ is_pinned       │
-│ is_locked       │
-└─────────────────┘
-```
-
-
 ![Entity Relationship Diagram](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/db%20schema%202.png)
 
 1.  **Auth Domain:** Handles user identity, OAuth accounts, and secure sessions.
@@ -414,15 +367,17 @@ npm run check-sessions   # Check active sessions
 
 ## 🚀 Deployment
 
-### Production Checklist
+The system is optimized for serverless and edge deployment.
 
-- [ ] Set `NODE_ENV=production`
-- [ ] Set `ARCJET_ENV=LIVE` (enforce rate limiting)
-- [ ] Use strong `BETTER_AUTH_SECRET` (32+ chars)
-- [ ] Set `secure: true` for cookies
-- [ ] Configure production database URL
-- [ ] Set correct `BETTER_AUTH_URL` and `FRONTEND_URL`
-- [ ] Run `npm run build` before starting
+![Deployment Architecture](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/deploy.png)
+
+- **Database:** Neon PostgreSQL (Serverless with connection pooling).
+- **Hosting:** Optimized for Vercel, Railway, or Render.
+- **Security:** Arcjet LIVE mode enforced in production.
+
+*Full Architecture details can be found in the [System Design Documentation](./DEPLOYMENT.md).*
+
+---
 
 ### Environment-Specific Configs
 
