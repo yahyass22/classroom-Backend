@@ -21,78 +21,7 @@ Comprehensive system architecture and design documentation for the Classroom Bac
 
 ### High-Level Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                                   CLIENT                                         │
-│  ┌────────────────────────────────────────────────────────────────────────────┐  │
-│  │  Frontend Application (React + Vite + TypeScript)                          │  │
-│  │  Port: 5173                                                                │  │
-│  │                                                                            │  │
-│  │  Components:                                                               │  │
-│  │  • Dashboard Analytics                                                     │  │
-│  │  • Class Management                                                        │  │
-│  │  • Discussion Forums                                                       │  │
-│  │  • User Profiles                                                           │  │
-│  └────────────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                                        │ HTTPS
-                                        │ Cookies: better-auth.session_token
-                                        │ Content-Type: application/json
-                                        ▼
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                              API SERVER (Express.js)                             │
-│  Port: 8000                                                                      │
-│  Environment: Node.js 20+ (ESM)                                                  │
-│                                                                                  │
-│  ┌────────────────────────────────────────────────────────────────────────────┐  │
-│  │                           MIDDLEWARE STACK                                  │  │
-│  │                                                                            │  │
-│  │  1. Compression (gzip)                                                     │  │
-│  │  2. CORS (Credentials enabled)                                             │  │
-│  │  3. JSON Parser                                                            │  │
-│  │  4. Arcjet Security (Rate Limiting, Bot Detection, Shield)                 │  │
-│  │  5. Auth Middleware (Session validation, LRU cache)                        │  │
-│  └────────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
-│  ┌────────────────────────────────────────────────────────────────────────────┐  │
-│  │                              ROUTE HANDLERS                                 │  │
-│  │                                                                            │  │
-│  │  /api/auth/*         → Better Auth Handler                                 │  │
-│  │  /api/dashboard/*    → Dashboard Analytics (10 endpoints)                  │  │
-│  │  /api/classes/*      → Class Management (3 endpoints)                      │  │
-│  │  /api/subjects/*     → Subject Listing                                     │  │
-│  │  /api/users/*        → User Listing                                        │  │
-│  │  /api/discussions/*  → Discussion Forum (20+ endpoints)                    │  │
-│  └────────────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                                        │ Drizzle ORM
-                                        │ Connection Pooling (Neon)
-                                        ▼
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                          DATABASE (Neon PostgreSQL)                              │
-│                                                                                  │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐               │
-│  │   Auth Schema    │  │    App Schema    │  │ Discussion Schema│               │
-│  │                  │  │                  │  │                  │               │
-│  │  • user          │  │  • departments   │  │  • discussions   │               │
-│  │  • session       │  │  • subjects      │  │  • replies       │               │
-│  │  • account       │  │  • teachers      │  │  • views         │               │
-│  │  • verification  │  │  • classes       │  │  • votes         │               │
-│  │                  │  │  • enrollments   │  │  │               │               │
-│  └──────────────────┘  └──────────────────┘  └──────────────────┘               │
-│                                                                                  │
-│  Features:                                                                       │
-│  • Serverless PostgreSQL                                                         │
-│  • Connection pooling                                                            │
-│  • Branching support                                                             │
-│  • Auto-scaling                                                                  │
-│  └──────────────────┘                                                            │
-└──────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
+![System Overview](https://github.com/yahyass22/classroom-Backend/blob/2eb5b0420aa71e0d19ded55ed2502621ce8df7e5/final%20readme/Diagrams%20PNG/project%20overviw%20diagram.png)
 
 ## Architecture Diagrams
 
@@ -160,64 +89,12 @@ Comprehensive system architecture and design documentation for the Classroom Bac
 
 ### 2. Authentication Flow
 
-```
-┌──────────┐                              ┌──────────┐
-│  Client  │                              │  Server  │
-└────┬─────┘                              └────┬─────┘
-     │                                        │
-     │  POST /api/auth/sign-in/email          │
-     │  { email, password }                   │
-     │───────────────────────────────────────►│
-     │                                        │
-     │                                        │  Validate credentials
-     │                                        │  (Better Auth)
-     │                                        │
-     │                                        │  Generate session token
-     │                                        │  Store in DB (session table)
-     │                                        │
-     │  Set-Cookie: better-auth.session_token │
-     │  Path: /; HttpOnly; SameSite=lax       │
-     │◄───────────────────────────────────────│
-     │                                        │
-     │  Store cookie in browser               │
-     │                                        │
-     │                                        │
-     │  Subsequent Request                    │
-     │  (with cookie)                         │
-     │───────────────────────────────────────►│
-     │                                        │
-     │                                        │  Parse cookie
-     │                                        │  Check LRU cache
-     │                                        │
-     │                                        │  ┌─────────────┐
-     │                                        │  │ Cache Hit?  │
-     │                                        │  └──────┬──────┘
-     │                                        │         │
-     │                                        │    Yes  │  No
-     │                                        │    ┌────┴─────┐
-     │                                        │    │          │
-     │                                        │    ▼          ▼
-     │                                        │  Return    Call auth.api
-     │                                        │  cached    .getSession()
-     │                                        │  session       │
-     │                                        │                │
-     │                                        │                ▼
-     │                                        │          Query DB
-     │                                        │          (session table)
-     │                                        │                │
-     │                                        │                ▼
-     │                                        │          Cache result
-     │                                        │                │
-     │                                        │                ▼
-     │                                        │          Return user
-     │                                        │
-     │                                        │  Attach req.user
-     │                                        │  Continue to route
-     │                                        │
-     │  Response (protected data)             │
-     │◄───────────────────────────────────────│
-     │                                        │
-```
+The system uses a highly secure Cookie-based Session strategy.
+- **CORS Protection:** Requests are validated against a whitelist of trusted origins.
+- **Rate Limiting:** Sliding window limits based on user role (Admin: 20/min, User: 10/min).
+- **Session Caching:** LRU cache (1000 entries) reduces DB load for session validation.
+
+![Authentication Flow](https://github.com/yahyass22/classroom-Backend/blob/2eb5b0420aa71e0d19ded55ed2502621ce8df7e5/final%20readme/Diagrams%20PNG/session%20authentication%20flow.png)
 
 ### 3. Session Caching Strategy (LRU)
 
