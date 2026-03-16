@@ -71,75 +71,10 @@ A comprehensive, production-ready backend API for classroom management, built wi
 
 ## 🏗️ System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            CLIENT LAYER                                  │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Frontend (React/Vite)                         │    │
-│  │                    http://localhost:5173                         │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ HTTP/HTTPS
-                                    │ Cookies (better-auth.session_token)
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         SECURITY LAYER                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Arcjet Middleware                             │    │
-│  │  • Rate Limiting (Role-based: 5/10/20 req/min)                  │    │
-│  │  • Bot Detection (Allow search engines, previews)               │    │
-│  │  • SQL Injection Protection (Shield)                            │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        APPLICATION LAYER                                 │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Express.js Server                             │    │
-│  │                    Port: 8000                                    │    │
-│  │                                                                  │    │
-│  │  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐  │    │
-│  │  │ Auth Middleware  │  │ Session Cache    │  │  CORS         │  │    │
-│  │  │ • Cookie Parse   │  │ • LRU (1000)     │  │  Middleware   │  │    │
-│  │  │ • Token Extract  │  │ • 5min TTL       │  │               │  │    │
-│  │  │ • User Attach    │  │ • Dual Validate  │  │               │  │    │
-│  │  └──────────────────┘  └──────────────────┘  └───────────────┘  │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                      API Routes                                  │    │
-│  │  ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌───────────────┐   │    │
-│  │  │ /api/auth  │ │/api/dashboard│ │/api/classes│ │/api/discussions│  │    │
-│  │  │ (Better)   │ │ (10 endpoints)│ │(3 endpoints)│ │ (20+ endpoints)│  │    │
-│  │  └────────────┘ └────────────┘ └──────────┘ └───────────────┘   │    │
-│  │  ┌────────────┐ ┌────────────┐                                  │    │
-│  │  │/api/subjects│ │/api/users  │                                  │    │
-│  │  │(1 endpoint) │ │(1 endpoint)│                                  │    │
-│  │  └────────────┘ └────────────┘                                  │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ Drizzle ORM
-                                    │ (Type-safe queries)
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          DATA LAYER                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │              Neon Serverless PostgreSQL                          │    │
-│  │                                                                  │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │    │
-│  │  │ Auth Schema │  │ App Schema  │  │  Discussion Schema      │  │    │
-│  │  │ • user      │  │ • departments│  │  • discussions          │  │    │
-│  │  │ • session   │  │ • subjects   │  │  • discussion_replies   │  │    │
-│  │  │ • account   │  │ • teachers   │  │  • discussion_views     │  │    │
-│  │  │ • verification│ │ • classes   │  │  • discussion_votes     │  │    │
-│  │  │             │  │ • enrollments│  │                         │  │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────────┘  │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+Our architecture is built on a **Middleware-First** philosophy, ensuring every request is sanitized, authenticated, and rate-limited before reaching the business logic.
+
+![System Component Architecture](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/system%20component%20architecture.png)
+
 
 ## 🚀 Quick Start
 
@@ -187,6 +122,9 @@ npm run dev
 Server will start on `http://localhost:8000`
 
 ## 📡 API Endpoints
+
+The Classroom Backend API is a RESTful API built with Express.js and TypeScript. It provides endpoints for managing classes, users, discussions, and dashboard analytics.
+![CLASSROOM API endpoint map](https://github.com/yahyass22/classroom-Backend/blob/a69f35a548ed314224056ba13a057106e526693b/final%20readme/Diagrams%20PNG/CLASSROOM%20API%20endpoint%20map.png)
 
 ### Authentication
 ```
@@ -246,6 +184,8 @@ For complete API documentation, see [API_DOCUMENTATION.md](./docs/API_DOCUMENTAT
 
 ## 🗄️ Database Schema
 
+The schema is architected into three logical domains to ensure data integrity and query performance.
+
 ### Core Entities
 
 ```
@@ -294,6 +234,13 @@ For complete API documentation, see [API_DOCUMENTATION.md](./docs/API_DOCUMENTAT
 └─────────────────┘
 ```
 
+
+![Entity Relationship Diagram](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/db%20schema%202.png)
+
+1.  **Auth Domain:** Handles user identity, OAuth accounts, and secure sessions.
+2.  **App Domain:** The academic core managing the relationship between teachers, students, and classes.
+3.  **Discussion Domain:** A high-performance forum schema supporting nested relations and social metrics.
+
 For complete ERD diagram, see [DATABASE_SCHEMA.md](./docs/DATABASE_SCHEMA.md)
 
 ## 🔐 Authentication
@@ -308,45 +255,21 @@ The system uses **Better-Auth** for session management:
 - **Password Hashing**: Built-in (secure)
 - **Email Verification**: Optional (disabled by default)
 
-### User Roles
-
-| Role | Default | Permissions |
-|------|---------|-------------|
-| **student** | ✅ Yes | Enroll in classes, create discussions, reply, vote |
-| **teacher** | ❌ No | All student permissions + pin/lock discussions, accept answers |
-| **admin** | ❌ No | All permissions + system administration |
+### Role-Based Access Control (RBAC)
+- **Students:** Engage in classes and discussions.
+- **Teachers:** Manage class content and moderate forums.
+- **Admins:** Full system oversight.
 
 ### Authentication Flow
+The system uses a highly secure **Cookie-based Session** strategy.
 
-```
-┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
-│  Client  │      │  Server  │      │ Better   │      │ Database │
-│          │      │          │      │  Auth    │      │          │
-└────┬─────┘      └────┬─────┘      └────┬─────┘      └────┬─────┘
-     │                 │                 │                 │
-     │  POST /sign-in  │                 │                 │
-     │────────────────►│                 │                 │
-     │                 │  getSession()   │                 │
-     │                 │────────────────►│                 │
-     │                 │                 │  Query session  │
-     │                 │                 │────────────────►│
-     │                 │                 │                 │
-     │                 │                 │  Session data   │
-     │                 │                 │◄────────────────│
-     │                 │  Session + User │                 │
-     │                 │◄────────────────│                 │
-     │                 │                 │                 │
-     │                 │  Set-Cookie     │                 │
-     │  Set-Cookie     │                 │                 │
-     │◄────────────────│                 │                 │
-     │                 │                 │                 │
-     │  Subsequent     │                 │                 │
-     │  Requests       │                 │                 │
-     │  (with cookie)  │                 │                 │
-     │────────────────►│                 │                 │
-     │                 │                 │                 │
-```
+![Authentication Flow](https://github.com/yahyass22/classroom-Backend/blob/9debbbe41d859af559841420601ea8259f14e131/final%20readme/session%20authentication%20flow.png)
 
+- **CORS Protection:** Requests are validated against a whitelist of trusted origins.
+- **Rate Limiting:** Sliding window limits based on user role (Admin: 20/min, User: 10/min).
+- **Session Caching:** LRU cache (1000 entries) reduces DB load for session validation.
+
+---
 ## 🔒 Security
 
 ### Arcjet Security Layers
